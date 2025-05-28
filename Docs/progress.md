@@ -74,6 +74,48 @@ This document tracks the implementation progress of the EdTech Platform, grouped
 
 ---
 
+## [YYYY-MM-DD] Frontend Daily Mission Display (Task 4)
+**Author:** Principal Software Engineer
+
+### Summary
+Implemented the initial frontend integration for the Daily Mission feature. This includes a React Native screen to fetch and display mission data from the (currently mocked) backend API, along with loading and error states. A dedicated API service module was created for frontend-backend communication, and unit tests were established for this service.
+
+### Details
+- **API Service (`frontend/services/missionApi.ts`):**
+  - Created `fetchDailyMission` function to retrieve daily mission data.
+  - Currently uses a mocked API response within the service itself, simulating a network delay and returning a predefined mission structure.
+  - Includes TypeScript interfaces (`Mission`, `Question`) for data structure.
+  - Basic error handling and console logging for API call failures.
+- **HomeScreen Component (`frontend/screens/HomeScreen.tsx`):**
+  - React Native functional component using `useState` and `useEffect` hooks.
+  - Fetches mission data on component mount via `fetchDailyMission`.
+  - Manages and displays three states:
+    - Loading: Shows an `ActivityIndicator` and loading text.
+    - Error: Shows an error message and a "Try Again" button.
+    - Success: Displays the mission questions (or a "No mission" message).
+  - Uses basic React Native `StyleSheet` for styling, with placeholders for future TailwindCSS integration.
+- **Unit Testing (`frontend/services/__tests__/missionApi.test.ts`):**
+  - Basic Jest test suite for `fetchDailyMission`.
+  - Mocks `global.fetch` (though not currently used by `fetchDailyMission` due to its internal mock).
+  - Tests currently verify the behavior of the service with its own mocked data. Tests for actual `fetch` calls are commented out, pending removal of the internal mock in `missionApi.ts`.
+  - Linter errors related to missing Jest types (`@types/jest`) were noted but not resolved as part_of this task, as it typically requires project-level dependency setup.
+
+### Engineering Standards Followed:
+- Modular design (API service separated from screen component).
+- Explicit variable names.
+- Handling of loading, error, and data states in the UI.
+- Placeholder for comprehensive error handling (e.g., remote logging).
+- Unit tests for the API service layer.
+
+### Next Steps (for Frontend Task 4 & related):
+- Replace internal mock in `missionApi.ts` with actual `fetch` calls to the backend.
+- Uncomment and adapt unit tests in `missionApi.test.ts` for real fetch scenarios.
+- Integrate a styling solution like TailwindCSS.
+- Implement full UI/UX for question interaction and mission submission (part of subsequent tasks).
+- Address linter errors by ensuring appropriate type definitions are installed and configured in the frontend project.
+
+---
+
 ## Partially Implemented / In Progress / To Do
 
 Based on the initial [User Story 1 Implementation Plan](Requirement/userstory/story1/implementation_plan.md):
@@ -87,7 +129,8 @@ Based on the initial [User Story 1 Implementation Plan](Requirement/userstory/st
     *   Needs integration with the official `DailyMission` schema (Task 1) and actual database persistence.
 
 *   **Task 4: Integrate Mission API into React Native App (`frontend/screens/HomeScreen.tsx`)**
-    *   **Status:** Not started.
+    *   **Status:** Partially implemented. Basic frontend structure for fetching and displaying missions (with mock data from the service layer) is in place. Includes loading/error states. API service and `HomeScreen` component created. Unit tests for API service established.
+    *   Needs connection to actual backend, removal of service-level mock data, full UI styling, and resolution of Jest type errors.
 
 *   **Task 5: Handle Mission Resume on Reopen (`frontend/screens/MissionScreen.tsx`)**
     *   **Status:** Not started.
