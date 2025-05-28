@@ -1,0 +1,18 @@
+[
+  {
+    "fileName": "main-overview.mdc",
+    "description": "Complete system overview documenting the daily mission generation and retrieval system, including high-level architecture, component interactions, and system boundaries"
+  },
+  {
+    "fileName": "data-models-and-flow.mdc",
+    "description": "Detailed documentation of the daily mission data model, API response structures, and data flow between frontend and backend components including timezone handling"
+  },
+  {
+    "fileName": "mission-generation-algorithm.mdc",
+    "description": "Comprehensive documentation of the mission generation algorithm, including uniqueness guarantees, question selection logic, and error handling scenarios"
+  },
+  {
+    "fileName": "api-integration.mdc",
+    "description": "Documentation of the API contract between frontend and backend, including endpoint specifications, response formats, and error handling patterns"
+  }
+]

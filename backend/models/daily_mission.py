@@ -36,6 +36,14 @@ class DailyMissionDocument(BaseModel):
         default=MissionStatus.NOT_STARTED,
         description="The current completion status of the mission."
     )
+    current_question_index: int = Field(
+        default=0,
+        description="The index of the current question the user is on."
+    )
+    answers: List[dict] = Field(
+        default_factory=list,
+        description='A list of answers provided by the user, e.g., [{"question_id": "q1", "answer": "option_a"}].'
+    )
     created_at: datetime.datetime = Field(
         default_factory=datetime.datetime.utcnow,
         description="Timestamp of when the mission record was created (UTC)."
@@ -61,6 +69,8 @@ class DailyMissionDocument(BaseModel):
                 "date": "2023-10-27",
                 "question_ids": ["q1", "q2", "q3", "q4", "q5"],
                 "status": "not_started",
+                "current_question_index": 0,
+                "answers": [{"question_id": "q1", "answer": "option_a"}],
                 "created_at": "2023-10-27T10:00:00.000Z",
                 "updated_at": "2023-10-27T10:00:00.000Z",
             }

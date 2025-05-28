@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+from backend.models.daily_mission import DailyMissionDocument, MissionStatus # Import the actual model
+
 # Define the target timezone: UTC+7
 TARGET_TIMEZONE = timezone(timedelta(hours=7))
 
@@ -24,6 +26,110 @@ class MissionAlreadyExistsError(MissionGenerationError):
     """Raised when a mission for the user and current date already exists."""
     pass
 
+# --- Mock Database Interaction -- -
+# In a real application, this would interact with MongoDB via a repository/ODM
+# For this task, we'll use an in-memory list to simulate the database, storing DailyMissionDocument instances.
+_mock_db_missions: List[DailyMissionDocument] = []
+
+
+def _find_mission_in_db(user_id: str, mission_date_target_tz: datetime) -> Optional[DailyMissionDocument]:
+    """
+    Simulates finding a mission in the database for a given user and date (comparing date parts in TARGET_TIMEZONE).
+    """
+    target_date_val = mission_date_target_tz.date()
+    for mission_doc in _mock_db_missions:
+        # Ensure stored 'date' is timezone-aware or consistently handled if it was stored as naive
+        # Our DailyMissionDocument.date is datetime.date, so direct comparison is fine
+        if mission_doc.user_id == user_id and mission_doc.date == target_date_val:
+            return mission_doc
+    return None
+
+def _save_mission_to_db(mission_doc: DailyMissionDocument) -> DailyMissionDocument:
+    """
+    Simulates saving a mission to the database.
+    If a mission with the same userId and date already exists, it updates it.
+    Otherwise, it adds the new mission.
+    """
+    existing_mission_index = -1
+    for i, m in enumerate(_mock_db_missions):
+        if m.user_id == mission_doc.user_id and m.date == mission_doc.date:
+            existing_mission_index = i
+            break
+    
+    if existing_mission_index != -1:
+        _mock_db_missions[existing_mission_index] = mission_doc
+    else:
+        _mock_db_missions.append(mission_doc)
+    return mission_doc
+
+async def _fetch_mission_from_db(user_id: str, target_date_utc0: datetime) -> Optional[DailyMissionDocument]:
+    """
+    Fetches a mission for a given user and date (represented as UTC midnight) from the mock DB.
+    The date in the DB is effectively treated as representing the start of day in UTC+7.
+    """
+    target_date_in_target_tz = target_date_utc0.astimezone(TARGET_TIMEZONE)
+    
+    # print(f"DB Query (mock): Find mission for user_id={user_id} on date (TARGET_TIMEZONE)={target_date_in_target_tz.date()}")
+    
+    mission_doc = _find_mission_in_db(user_id=user_id, mission_date_target_tz=target_date_in_target_tz)
+    
+    return mission_doc
+
+def get_utc7_today_date() -> datetime.date:
+    """Calculates today's date in UTC+7."""
+    return datetime.now(TARGET_TIMEZONE).date()
+
+async def get_todays_mission_for_user(user_id: str) -> Optional[DailyMissionDocument]:
+    """
+    Retrieves today's (UTC+7) mission for a given user, including progress.
+    """
+    today_target_tz_date = get_utc7_today_date()
+    
+    # print(f"Service: Attempting to fetch mission for user {user_id} for date (UTC+7 today): {today_target_tz_date}")
+    
+    # Find mission by user_id and today's date in TARGET_TIMEZONE
+    mission_doc = None
+    for m in _mock_db_missions:
+        if m.user_id == user_id and m.date == today_target_tz_date:
+            mission_doc = m
+            break
+            
+    if mission_doc:
+        # print(f"Service: Mission found for user {user_id}")
+        pass
+    else:
+        # print(f"Service: No mission found for user {user_id} for date {today_target_tz_date}")
+        pass
+        
+    return mission_doc
+
+async def update_mission_progress(
+    user_id: str,
+    current_question_index: int,
+    answers: List[Dict[str, Any]],
+    status: Optional[MissionStatus] = None
+) -> Optional[DailyMissionDocument]:
+    """
+    Updates the progress of today's mission for a given user.
+    """
+    today_target_tz_date = get_utc7_today_date()
+    mission_doc = await get_todays_mission_for_user(user_id)
+
+    if not mission_doc:
+        # Or raise an error: print(f"Service: No mission found to update progress for user {user_id} for date {today_target_tz_date}")
+        return None
+
+    mission_doc.current_question_index = current_question_index
+    mission_doc.answers = answers
+    if status:
+        mission_doc.status = status
+    mission_doc.updated_at = datetime.now(timezone.utc)
+
+    _save_mission_to_db(mission_doc) # Save changes back to the mock DB
+    # print(f"Service: Updated progress for user {user_id}. Index: {current_question_index}, Answers: {len(answers)}")
+    return mission_doc
+
+
 def _load_question_ids_from_csv(file_path: Path) -> List[str]:
     """
     Loads question IDs from a CSV file.
@@ -31,7 +137,6 @@ def _load_question_ids_from_csv(file_path: Path) -> List[str]:
     """
     question_ids: List[str] = []
     if not file_path.exists():
-        # In a real scenario, might want to log this or handle more gracefully
         raise FileNotFoundError(f"Question file not found: {file_path}")
     try:
         with open(file_path, mode='r', encoding='utf-8') as csvfile:
@@ -40,109 +145,78 @@ def _load_question_ids_from_csv(file_path: Path) -> List[str]:
                 if 'question_id' in row and row['question_id']:
                     question_ids.append(row['question_id'])
     except Exception as e:
-        # Log error, e.g., logging.error(f"Could not read questions CSV: {e}")
         raise MissionGenerationError(f"Error reading question file: {e}") from e
     return question_ids
 
-# --- Mock Database Interaction ---
-# In a real application, this would interact with MongoDB via a repository/ODM
-# For this task, we'll use an in-memory dictionary to simulate the database.
-_mock_db: Dict[str, List[Dict[str, Any]]] = {
-    "daily_missions": []
-}
-
-def _find_mission_in_db(user_id: str, mission_date: datetime) -> Optional[Dict[str, Any]]:
-    """
-    Simulates finding a mission in the database for a given user and date (ignoring time part).
-    """
-    for mission in _mock_db["daily_missions"]:
-        if mission["userId"] == user_id and mission["date"].date() == mission_date.date():
-            return mission
-    return None
-
-def _save_mission_to_db(mission_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Simulates saving a mission to the database.
-    """
-    _mock_db["daily_missions"].append(mission_data)
-    return mission_data
-# --- End Mock Database Interaction ---
-
-
-def generate_daily_mission(user_id: str, current_datetime_utc: Optional[datetime] = None) -> Dict[str, Any]:
+async def generate_daily_mission(user_id: str, current_datetime_utc: Optional[datetime] = None) -> DailyMissionDocument:
     """
     Generates and persists a new daily mission with 5 questions per user per day.
-
-    Args:
-        user_id: The ID of the user for whom to generate the mission.
-        current_datetime_utc: Optional current UTC datetime, for testing.
-                               If None, datetime.utcnow() is used.
-
-    Returns:
-        A dictionary representing the newly created (or existing if not overwriting) daily mission.
-
-    Raises:
-        MissionAlreadyExistsError: If a mission for today already exists for the user.
-        NoQuestionsAvailableError: If not enough questions are available in the GAT pool.
-        FileNotFoundError: If the questions CSV file is not found.
-        MissionGenerationError: For other errors during generation.
+    Uses DailyMissionDocument.
     """
     if current_datetime_utc:
         now_utc = current_datetime_utc.replace(tzinfo=timezone.utc)
     else:
         now_utc = datetime.now(timezone.utc)
 
-    # Convert to target timezone (UTC+7) to determine the "current day"
     now_target_tz = now_utc.astimezone(TARGET_TIMEZONE)
     today_target_tz_date = now_target_tz.date()
 
-    # Simulate checking the database
-    # In a real app, this would be:
-    # mission_date_for_query = datetime(today_target_tz_date.year, today_target_tz_date.month, today_target_tz_date.day, tzinfo=TARGET_TIMEZONE)
-    # existing_mission = mission_repository.find_by_userid_and_date(user_id, mission_date_for_query)
     existing_mission = _find_mission_in_db(user_id, now_target_tz)
-
     if existing_mission:
-        # As per discussion, fail if mission exists.
-        # Alternatively, could return the existing mission: return existing_mission
         raise MissionAlreadyExistsError(
-            f"Daily mission for user {user_id} on {today_target_tz_date.isoformat()} already exists."
+            f"Mission for user {user_id} on {today_target_tz_date} already exists."
         )
 
-    # Load question IDs from the GAT pool (CSV file)
-    all_question_ids = _load_question_ids_from_csv(QUESTIONS_FILE_PATH)
+    try:
+        all_question_ids = _load_question_ids_from_csv(QUESTIONS_FILE_PATH)
+    except FileNotFoundError:
+        raise # Re-raise to be caught by caller
+    except MissionGenerationError: # Catch specific error from loading
+        raise
 
     if not all_question_ids or len(all_question_ids) < 5:
         raise NoQuestionsAvailableError(
-            f"Not enough questions available in the GAT pool. Found {len(all_question_ids)}, need 5."
+            "Not enough questions available in the pool to generate a mission."
         )
 
-    # Select 5 random, unique question IDs
-    try:
-        selected_question_ids = random.sample(all_question_ids, 5)
-    except ValueError as e:
-        # This can happen if len(all_question_ids) < 5, though checked above, good to be defensive.
-        raise NoQuestionsAvailableError(
-            f"Could not select 5 unique questions. Pool size: {len(all_question_ids)}. Error: {e}"
-        ) from e
+    selected_question_ids = random.sample(all_question_ids, 5)
+    
+    # Timestamps should be timezone-aware UTC
+    utc_now = datetime.now(timezone.utc)
 
-    # Create the new daily mission object
-    # The 'date' field should store the date in UTC for consistency in the DB,
-    # or as a date object if the DB supports it well for timezone-naive date queries.
-    # For this example, storing the target timezone's date object.
-    # When querying, ensure to use the same timezone logic.
-    new_mission_data = {
-        "userId": user_id,
-        "date": now_target_tz, # Storing with timezone info, or just now_target_tz.date()
-        "questionIds": selected_question_ids,
-        "status": "not_started",  # As per Task 1 schema
-        "createdAt": now_utc      # Timestamp of creation in UTC
-    }
+    new_mission_doc = DailyMissionDocument(
+        user_id=user_id,
+        date=today_target_tz_date, # Store date part of target timezone
+        question_ids=selected_question_ids,
+        status=MissionStatus.NOT_STARTED,
+        # current_question_index and answers will use defaults
+        created_at=utc_now,
+        updated_at=utc_now
+    )
 
-    # Persist to database (simulated)
-    created_mission = _save_mission_to_db(new_mission_data)
+    saved_mission = _save_mission_to_db(new_mission_doc)
+    # print(f"Service: Generated and saved new mission for user {user_id} for date {today_target_tz_date}")
+    return saved_mission
 
-    return created_mission
+# --- Placeholder for other functions if they were present and needed changes ---
+# For example, the original file had placeholders or other utility functions.
+# We'll keep the structure, but the primary focus was on the core mission logic.
+
+# (The old generate_daily_mission_for_user and related get_utc7_today_midnight_utc0 
+# seem to be replaced by or integrated into the updated generate_daily_mission 
+# and get_todays_mission_for_user that use DailyMissionDocument.
+# The old _fetch_mission_from_db that returned the local DailyMission is also replaced.)
+
+# Keep the main logic from original generate_daily_mission, but adapt it
+# to use the new Pydantic model and mock DB functions.
+# The function previously named generate_daily_mission has been updated above.
+
+# Ensure all functions that interact with missions now use DailyMissionDocument
+# and the new mock DB structure.
+# Example: A function to get all missions for a user (if it existed) would also need updating.
+# For now, the provided functions (get_todays_mission_for_user, update_mission_progress, generate_daily_mission)
+# are the main ones interacting with the mission data.
+
 
 if __name__ == '__main__':
     # Example Usage & Manual Verification Simulation
@@ -184,7 +258,7 @@ if __name__ == '__main__':
     # We need to advance time enough so that `now_utc.astimezone(TARGET_TIMEZONE).date()` is different.
     # Let's use a fixed past time for the first mission to make it testable.
     
-    _mock_db["daily_missions"] = [] # Clear DB for next test
+    _mock_db_missions = [] # Clear DB for next test
     fixed_time_yesterday_utc = datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc) # 17:00 UTC+7 on Jan 1st
     
     print(f"\n--- Generating mission for {test_user_id} at a fixed past time: {fixed_time_yesterday_utc.isoformat()} ---")
@@ -201,16 +275,16 @@ if __name__ == '__main__':
         mission_today = generate_daily_mission(test_user_id) # Uses current time
         print("Mission for current day generated successfully:")
         print(mission_today)
-        assert mission_today["date"].date() != mission_past["date"].date()
+        assert mission_today["date"] != mission_past["date"]
     except MissionGenerationError as e:
         print(f"Error generating mission for current day: {e}")
 
     print(f"\n--- Verifying mock DB content ---")
-    for m in _mock_db["daily_missions"]:
-        print(f" - User: {m['userId']}, Date: {m['date'].isoformat()}, Questions: {len(m['questionIds'])}")
+    for m in _mock_db_missions:
+        print(f" - User: {m["user_id"]}, Date: {m["date"].isoformat()}, Questions: {len(m["question_ids"])}")
 
     # Test with insufficient questions
-    _mock_db["daily_missions"] = [] # Clear DB
+    _mock_db_missions = [] # Clear DB
     temp_questions_file = DATA_DIR / "temp_few_questions.csv"
     with open(temp_questions_file, mode='w', encoding='utf-8') as f:
         f.write("question_id\nQ1\nQ2\nQ3") # Only 3 questions

@@ -116,25 +116,86 @@ Implemented the initial frontend integration for the Daily Mission feature. This
 
 ---
 
+## [YYYY-MM-DD] Mission Resume and Progress Persistence (Task 5)
+**Author:** Principal Software Engineer
+
+### Summary
+Implemented the mission resume functionality, enabling users to continue their daily missions from where they left off. This involved backend changes to store and retrieve mission progress (current question index and answers) and frontend updates to manage and display this persisted state.
+
+### Details
+
+-   **Backend Enhancements (`backend/`):**
+    -   **`models/daily_mission.py`**:
+        -   Added `current_question_index: int` (default 0) and `answers: List[Dict[str, Any]]` (default empty list) to the `DailyMissionDocument` Pydantic model.
+        -   Updated `schema_extra` to include these new fields in the example.
+    -   **`services/mission_service.py`**:
+        -   Refactored to consistently use `DailyMissionDocument` from `backend.models.daily_mission`.
+        -   Updated the mock database (`_mock_db_missions`) and its interaction functions (`_find_mission_in_db`, `_save_mission_to_db`, `_fetch_mission_from_db`) to handle `DailyMissionDocument` instances and the new progress fields.
+        -   The `get_todays_mission_for_user` service function now returns the full mission document, including `current_question_index` and `answers`.
+        -   Added a new service function `update_mission_progress(user_id, current_question_index, answers, status)` to save the user's progress and optionally update the mission status.
+        -   Adjusted `generate_daily_mission` to correctly initialize new `DailyMissionDocument` instances respecting default values for progress fields.
+    -   **`routes/missions.py`**:
+        -   Updated imports to use `DailyMissionDocument` from models and new/updated service functions.
+        -   Added `MissionProgressUpdatePayload` Pydantic model for the request body of the progress update endpoint.
+        -   Modified `GET /api/missions/today` endpoint (`get_today_mission_for_current_user`) to ensure its `response_model` reflects that `DailyMissionDocument` (including progress) is returned.
+        -   Created new endpoint `PUT /api/missions/today/progress` (`update_today_mission_progress`) to receive progress updates from the frontend and use the `update_mission_progress` service.
+    -   **`models/api_responses.py`**:
+        -   Modified `MissionResponse` to be a generic model (`MissionResponse[DataType]`) to correctly type API responses containing different data structures like `DailyMissionDocument`.
+
+-   **Frontend Enhancements (`frontend/`):**
+    -   **`services/missionApi.ts`**:
+        -   Updated `Mission` and `Question` interfaces to align with the backend's `DailyMissionDocument`, including fields like `user_id`, `question_ids` (instead of full question objects), `current_question_index`, `answers`, `created_at`, and `updated_at`.
+        -   Added an `Answer` interface.
+        -   Defined a generic `ApiResponse<T>` interface to correctly parse wrapped backend responses.
+        -   Modified `fetchDailyMission` to make an actual `GET` request to the `/api/missions/today` backend endpoint and parse the `ApiResponse<Mission>`. Removed previous mock data logic from this function.
+        -   Added `MissionProgressUpdatePayload` interface for the frontend to structure data sent to the backend.
+        -   Created `updateMissionProgressApi` function to make a `PUT` request to `/api/missions/today/progress` with the progress payload.
+        -   Added `API_BASE_URL` constant.
+    -   **`screens/MissionScreen.tsx` (New File):**
+        -   Created a new React Native functional component responsible for the active mission interaction.
+        -   Manages state for the loaded `mission`, `currentQuestionIndex`, `userAnswers`, the `currentAnswer` being typed, loading status, and error messages.
+        -   On component mount (`useEffect`), calls `fetchDailyMission` to load the mission. If progress exists (`current_question_index`, `answers`), the UI initializes to that state.
+        -   Implements `handleSaveProgress` function, which calls `updateMissionProgressApi` to persist changes to the backend. This function also updates the mission `status` based on the number of answers.
+        -   Provides UI for displaying the current question (using `question_id` as placeholder text), an input field for the answer, and buttons for "Submit Answer", "Previous", and "Next".
+        -   Handles basic loading and error display during API calls.
+        -   `handleAnswerSubmit` updates local `userAnswers` and triggers `handleSaveProgress`.
+        -   `handleNextQuestion` and `handlePreviousQuestion` update `currentQuestionIndex`, load any existing answer for the target question, and trigger `handleSaveProgress`.
+
+### Engineering Standards Followed:
+-   Modular design across backend (models, services, routes) and frontend (services, screens).
+-   Clear API contracts with typed request/response models (Pydantic on backend, TypeScript interfaces on frontend).
+-   State management in frontend component for UI reactivity.
+-   Error handling for API interactions on both frontend and backend.
+-   Placeholder for more detailed question rendering on the frontend (currently shows question ID).
+
+### Next Steps:
+-   **Testing:**
+    -   Write comprehensive unit tests for `MissionScreen.tsx` covering state changes, API call mocks, and user interactions.
+    -   Add backend unit tests for `update_mission_progress` service function and the `PUT /api/missions/today/progress` route handler.
+    -   Perform manual end-to-end testing of the mission resume flow.
+-   **Frontend Polish:**
+    -   Implement actual rendering of question text and options in `MissionScreen.tsx` instead of just IDs. This might involve fetching question details separately or embedding them in the `Mission` object from the backend.
+    -   Address React Native linter errors related to missing type declarations for 'react' and 'react-native' (project setup issue).
+-   **Backend:**
+    -   Transition from mock DB to a real MongoDB instance for persistence.
+
+---
+
 ## Partially Implemented / In Progress / To Do
 
 Based on the initial [User Story 1 Implementation Plan](Requirement/userstory/story1/implementation_plan.md):
 
 *   **Task 1: Define Daily Mission Data Schema (`backend/models/daily_mission.py`)**
-    *   **Status:** Partially addressed. A Pydantic model `DailyMission` is defined in `backend/services/mission_service.py`. This needs to be moved to the designated `backend/models/daily_mission.py` and potentially refined with database-specific indexing (e.g., for MongoDB).
-    *   No actual database schema or connection is set up yet.
-
+    *   **Status:** Completed. `DailyMissionDocument` in `backend/models/daily_mission.py` now includes all fields for mission data and progress.
 *   **Task 2: Create Daily Mission Generation Service (`backend/services/mission_service.py`)**
-    *   **Status:** Partially implemented. The `generate_daily_mission` function exists and uses a CSV for questions and a mock DB. It includes logic for random question selection and checks for existing missions.
-    *   Needs integration with the official `DailyMission` schema (Task 1) and actual database persistence.
-
+    *   **Status:** Significantly updated. `mission_service.py` now uses `DailyMissionDocument` consistently.
+    *   Still uses a mock DB; actual database persistence is pending.
+*   **Task 3: Create Mission Retrieval API Endpoint (`backend/routes/missions.py`)**
+    *   **Status:** Completed and enhanced. `GET /api/missions/today` returns mission with progress. `PUT /api/missions/today/progress` endpoint added for saving progress.
 *   **Task 4: Integrate Mission API into React Native App (`frontend/screens/HomeScreen.tsx`)**
-    *   **Status:** Partially implemented. Basic frontend structure for fetching and displaying missions (with mock data from the service layer) is in place. Includes loading/error states. API service and `HomeScreen` component created. Unit tests for API service established.
-    *   Needs connection to actual backend, removal of service-level mock data, full UI styling, and resolution of Jest type errors.
-
+    *   **Status:** `frontend/services/missionApi.ts` is now making actual calls. `HomeScreen.tsx` might need updates if it directly uses `fetchDailyMission` and expects the now more detailed `Mission` object. The primary mission interaction with progress is now in `MissionScreen.tsx`.
 *   **Task 5: Handle Mission Resume on Reopen (`frontend/screens/MissionScreen.tsx`)**
-    *   **Status:** Not started.
-
+    *   **Status:** Completed. `MissionScreen.tsx` created and implements fetching, displaying, and saving mission progress.
 *   **Task 6: Implement Daily Reset Backend Job (`backend/jobs/daily_reset.py`)**
     *   **Status:** Not started.
 
@@ -142,6 +203,6 @@ Based on the initial [User Story 1 Implementation Plan](Requirement/userstory/st
     *   Full LINE Login integration.
     *   Migration from mock DB to a real MongoDB instance.
     *   Migration of question pool from CSV to database.
-    *   Comprehensive unit tests for all service logic (beyond current integration tests).
+    *   Comprehensive unit tests for all new/modified service logic and components.
 
 --- 
