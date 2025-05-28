@@ -4,6 +4,8 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import os
 import csv
+import pytest
+import asyncio
 
 # Adjust the Python path to import from backend.services
 import sys
@@ -19,8 +21,14 @@ from mission_service import (
     NoQuestionsAvailableError,
     MissionGenerationError,
     TARGET_TIMEZONE,
-    _mock_db # For clearing between tests
+    _mock_db, # For clearing between tests
+    archive_past_incomplete_missions,
+    _mock_db_missions, # For test setup and verification
+    get_utc7_today_date,
+    _save_mission_to_db # To help in direct manipulation for tests
 )
+
+from backend.models.daily_mission import DailyMissionDocument, MissionStatus
 
 # Test data
 MOCK_GAT_QUESTIONS_CSV_CONTENT_VALID = (
@@ -215,6 +223,136 @@ class TestMissionService(unittest.TestCase):
         self.assertNotEqual(mission1["date"].date(), mission2["date"].date())
         self.assertNotEqual(mission1["questionIds"], mission2["questionIds"])
         self.assertEqual(mock_save.call_count, 2) # Saved twice
+
+# Helper to create mission documents for testing
+def _create_mission_doc(
+    user_id: str, 
+    mission_date: date, 
+    status: MissionStatus,
+    q_ids: list = ["q1", "q2", "q3", "q4", "q5"]
+) -> DailyMissionDocument:
+    return DailyMissionDocument(
+        user_id=user_id,
+        date=mission_date,
+        question_ids=q_ids,
+        status=status,
+        created_at=datetime.now(timezone.utc) - timedelta(days=10), # ensure created_at is in past
+        updated_at=datetime.now(timezone.utc) - timedelta(days=10)  # ensure updated_at is in past
+    )
+
+@pytest.fixture(autouse=True)
+def clear_mock_db_before_each_test():
+    """Ensures the mock DB is empty before each test run."""
+    _mock_db_missions.clear()
+    yield
+    _mock_db_missions.clear()
+
+@pytest.mark.asyncio
+async def test_archive_no_missions():
+    """Test archiving when there are no missions in the DB."""
+    archived_count = await archive_past_incomplete_missions()
+    assert archived_count == 0
+    assert len(_mock_db_missions) == 0
+
+@pytest.mark.asyncio
+async def test_archive_only_current_day_missions():
+    """Test that missions from today (UTC+7) are not archived."""
+    today_utc7 = get_utc7_today_date()
+    _mock_db_missions.append(_create_mission_doc("user1", today_utc7, MissionStatus.NOT_STARTED))
+    _mock_db_missions.append(_create_mission_doc("user2", today_utc7, MissionStatus.IN_PROGRESS))
+    
+    archived_count = await archive_past_incomplete_missions()
+    assert archived_count == 0
+    assert _mock_db_missions[0].status == MissionStatus.NOT_STARTED
+    assert _mock_db_missions[1].status == MissionStatus.IN_PROGRESS
+
+@pytest.mark.asyncio
+async def test_archive_past_incomplete_missions():
+    """Test that past incomplete missions are archived."""
+    today_utc7 = get_utc7_today_date()
+    yesterday_utc7 = today_utc7 - timedelta(days=1)
+    two_days_ago_utc7 = today_utc7 - timedelta(days=2)
+
+    # Missions that should be archived
+    _mock_db_missions.append(_create_mission_doc("user1", yesterday_utc7, MissionStatus.NOT_STARTED))
+    _mock_db_missions.append(_create_mission_doc("user2", two_days_ago_utc7, MissionStatus.IN_PROGRESS))
+    
+    # Missions that should NOT be archived
+    _mock_db_missions.append(_create_mission_doc("user3", yesterday_utc7, MissionStatus.COMPLETE)) # Already complete
+    _mock_db_missions.append(_create_mission_doc("user4", two_days_ago_utc7, MissionStatus.ARCHIVED)) # Already archived
+    _mock_db_missions.append(_create_mission_doc("user5", today_utc7, MissionStatus.NOT_STARTED)) # Today's mission
+
+    initial_db_size = len(_mock_db_missions)
+
+    archived_count = await archive_past_incomplete_missions()
+    assert archived_count == 2
+    assert len(_mock_db_missions) == initial_db_size # No missions deleted
+
+    for mission in _mock_db_missions:
+        if mission.user_id == "user1" and mission.date == yesterday_utc7:
+            assert mission.status == MissionStatus.ARCHIVED
+            assert mission.updated_at.date() == datetime.now(timezone.utc).date()
+        elif mission.user_id == "user2" and mission.date == two_days_ago_utc7:
+            assert mission.status == MissionStatus.ARCHIVED
+            assert mission.updated_at.date() == datetime.now(timezone.utc).date()
+        elif mission.user_id == "user3":
+            assert mission.status == MissionStatus.COMPLETE
+        elif mission.user_id == "user4":
+            assert mission.status == MissionStatus.ARCHIVED # Should remain archived
+        elif mission.user_id == "user5":
+            assert mission.status == MissionStatus.NOT_STARTED
+
+@pytest.mark.asyncio
+async def test_archive_all_are_past_incomplete():
+    """Test archiving when all missions are past and incomplete."""
+    today_utc7 = get_utc7_today_date()
+    yesterday_utc7 = today_utc7 - timedelta(days=1)
+
+    _mock_db_missions.append(_create_mission_doc("user1", yesterday_utc7, MissionStatus.NOT_STARTED))
+    _mock_db_missions.append(_create_mission_doc("user2", yesterday_utc7, MissionStatus.IN_PROGRESS))
+    
+    archived_count = await archive_past_incomplete_missions()
+    assert archived_count == 2
+    assert _mock_db_missions[0].status == MissionStatus.ARCHIVED
+    assert _mock_db_missions[1].status == MissionStatus.ARCHIVED
+
+@pytest.mark.asyncio
+async def test_archive_mixed_dates_and_statuses():
+    """More comprehensive test with mixed scenarios."""
+    today_utc7 = get_utc7_today_date()
+    d_minus_1 = today_utc7 - timedelta(days=1)
+    d_minus_2 = today_utc7 - timedelta(days=2)
+    d_minus_3 = today_utc7 - timedelta(days=3)
+
+    # Setup
+    _mock_db_missions.extend([
+        _create_mission_doc("user_today_ns", today_utc7, MissionStatus.NOT_STARTED),         # No change
+        _create_mission_doc("user_past_ns", d_minus_1, MissionStatus.NOT_STARTED),           # Archive
+        _create_mission_doc("user_past_ip", d_minus_2, MissionStatus.IN_PROGRESS),         # Archive
+        _create_mission_doc("user_past_comp", d_minus_1, MissionStatus.COMPLETE),          # No change
+        _create_mission_doc("user_past_arch", d_minus_3, MissionStatus.ARCHIVED),         # No change
+        _create_mission_doc("user_deep_past_ns", d_minus_3, MissionStatus.NOT_STARTED),   # Archive
+    ])
+
+    archived_count = await archive_past_incomplete_missions()
+    assert archived_count == 3
+
+    status_map = { (m.user_id, m.date): m.status for m in _mock_db_missions }
+
+    assert status_map[("user_today_ns", today_utc7)] == MissionStatus.NOT_STARTED
+    assert status_map[("user_past_ns", d_minus_1)] == MissionStatus.ARCHIVED
+    assert status_map[("user_past_ip", d_minus_2)] == MissionStatus.ARCHIVED
+    assert status_map[("user_past_comp", d_minus_1)] == MissionStatus.COMPLETE
+    assert status_map[("user_past_arch", d_minus_3)] == MissionStatus.ARCHIVED
+    assert status_map[("user_deep_past_ns", d_minus_3)] == MissionStatus.ARCHIVED
+
+    # Verify updated_at was touched for archived missions
+    for mission_doc in _mock_db_missions:
+        if mission_doc.user_id in ["user_past_ns", "user_past_ip", "user_deep_past_ns"]:
+            assert mission_doc.updated_at.date() == datetime.now(timezone.utc).date()
+            assert (datetime.now(timezone.utc) - mission_doc.updated_at).total_seconds() < 5 # recent
+        else: # For non-archived missions, updated_at should be the old one
+             assert mission_doc.updated_at.date() == (datetime.now(timezone.utc) - timedelta(days=10)).date()
 
 if __name__ == '__main__':
     unittest.main() 

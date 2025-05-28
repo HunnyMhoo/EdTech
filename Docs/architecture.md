@@ -13,6 +13,9 @@ graph TD
     D[LINE Login Service] -- OAuth 2.0 Flow --> A;
     B -- Authentication Check --> D;
     E[Question Pool: CSV/DB] -- Data Source --> B;
+    F[In-App Scheduler (APScheduler)] -.-> B; # Scheduler triggers job within Backend
+    F -- Manages --> G{Daily Reset Job};
+    G -- Modifies Mission Status --> C;
 
     subgraph User Interaction
         A
@@ -21,6 +24,8 @@ graph TD
     subgraph Backend Services
         B
         E
+        F
+        G
     end
 
     subgraph Data Storage
@@ -51,6 +56,7 @@ graph TD
         *   Handles user authentication (planned integration with LINE Login).
         *   Performs CRUD (Create, Read, Update, Delete) operations on the MongoDB database to manage user data, missions, etc. These operations are generally asynchronous thanks to FastAPI and suitable database drivers (e.g., Motor for MongoDB).
         *   Fetches data from the Question Pool (e.g., `gat_questions.csv` or a dedicated table/collection) to generate missions.
+        *   Hosts an in-app scheduler (APScheduler) that triggers background jobs (e.g., daily mission archival).
         *   Returns structured JSON responses to the Frontend.
 
 3.  **Database (MongoDB):**
@@ -66,6 +72,11 @@ graph TD
 5.  **LINE Login Service (External):**
     *   **Responsibility:** Handles user authentication via OAuth 2.0.
     *   **Data Flow:** The Frontend initiates the login flow with LINE. The Backend will verify tokens received from the Frontend.
+
+6.  **In-App Scheduler (APScheduler):**
+    *   **Responsibility:** Manages and executes scheduled background tasks within the backend application.
+    *   **Tech Stack:** APScheduler library integrated into FastAPI.
+    *   **Data Flow:** Triggers the Daily Reset Job at a configured time. The job itself interacts with the Mission Service and Database to archive old missions.
 
 ## Asynchronous vs. Synchronous Flows
 

@@ -17,6 +17,7 @@ class MissionStatus(str, Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     COMPLETE = "complete"
+    ARCHIVED = "archived"
 
 
 class DailyMissionDocument(BaseModel):

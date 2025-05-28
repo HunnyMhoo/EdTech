@@ -1,4 +1,3 @@
-
 # Implementation Plan: Launch Daily Mission Feature
 
 ## Assumptions
@@ -51,7 +50,7 @@
 
 ## Task 3: Create Mission Retrieval API Endpoint
 
-* Task Description: Build an API endpoint to fetch today’s mission for the logged-in user.
+* Task Description: Build an API endpoint to fetch today's mission for the logged-in user.
 * Location: backend/routes/missions.py
 * Implementation Notes:
   - Route: GET /api/missions/today
@@ -102,17 +101,24 @@
 
 ## Task 6: Implement Daily Reset Backend Job
 
-* Task Description: Implement a cron job to reset missions daily per user
-* Location: backend/jobs/daily_reset.py
+* Task Description: Implement a cron job to reset missions daily per user. This job archives incomplete missions from previous days (UTC+7).
+* Location: `backend/jobs/daily_reset.py` (job logic), `backend/main.py` (scheduler integration), `backend/services/mission_service.py` (archiving logic), `backend/models/daily_mission.py` (status update).
 * Implementation Notes:
-  - Run at 4AM UTC daily
-  - Invalidate or archive old missions
+  - Job scheduled via APScheduler in `backend/main.py` to run at 4AM UTC daily.
+  - Old, incomplete missions are marked with status `ARCHIVED`.
+  - Service function `archive_past_incomplete_missions` in `mission_service.py` handles the logic.
+  - `MissionStatus` enum in `daily_mission.py` updated with `ARCHIVED` status.
 * Automated Tests:
-  - Unit test to confirm old missions are marked correctly
+  - Unit tests for `ARCHIVED` status in `DailyMissionDocument` model.
+  - Unit tests for `archive_past_incomplete_missions` service function (mocking DB).
+  - Unit tests for `run_daily_reset_job` job function (mocking service calls and checking logs).
 * Manual Verification:
-  - Trigger manually and inspect DB state
+  - Trigger job manually (e.g., by adjusting schedule or running `daily_reset.py` script) and inspect mock DB state and application logs.
 * Best Practices to Follow:
-  - Use cron with timezone awareness
-  - Avoid duplicate jobs
+  - In-app scheduler (APScheduler) for job management integrated with the application lifecycle.
+  - Clear logging for job execution and scheduler events.
+  - Soft-delete (archiving) strategy to preserve data.
+  - Timezone consistency (UTC for scheduler, UTC+7 for mission logic).
+  - Comprehensive unit testing for new logic.
 
 ---

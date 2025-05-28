@@ -50,6 +50,22 @@ This document describes the key components of the EdTech Platform, grouped by th
 *   **Dependencies:** FastAPI TestClient, `unittest.mock`.
 *   **Key Functionality:** Verifies the behavior of the `/api/missions/today` endpoint. (Note: Needs update for progress endpoint).
 
+### 7. Daily Reset Job (`backend/jobs/daily_reset.py`)
+*   **Description:** Contains the logic for the daily mission reset/archival process.
+*   **Location:** [`backend/jobs/daily_reset.py`](../backend/jobs/daily_reset.py)
+*   **Dependencies:** `backend.services.mission_service`.
+*   **Key Functionality:**
+    *   `run_daily_reset_job()`: Orchestrates the archival of past-due incomplete missions by calling the relevant service function.
+    *   Includes logging for job execution.
+
+### 8. In-App Scheduler (APScheduler in `backend/main.py`)
+*   **Description:** Manages scheduled tasks within the FastAPI application.
+*   **Location:** Integrated within [`backend/main.py`](../backend/main.py).
+*   **Dependencies:** `apscheduler` library, `backend.jobs.daily_reset`.
+*   **Key Functionality:**
+    *   Schedules `run_daily_reset_job` to execute daily at 04:00 UTC.
+    *   Handles scheduler startup and shutdown with the FastAPI application lifecycle.
+
 ## Frontend Components
 
 Modifications based on recent implementation of Task 5:
@@ -75,5 +91,6 @@ Modifications based on recent implementation of Task 5:
 *   **Authentication Service:** LINE Login (external service).
 *   **Hosting Environment:** Platform for deploying the FastAPI backend and serving the React Native app (e.g., cloud VMs, container services, app stores).
 *   **Cron Job Runner:** System for executing the `daily_reset.py` job (e.g., Linux cron, cloud scheduler service).
+    *   **Note:** Currently implemented using an in-app scheduler (APScheduler) within `backend/main.py` rather than an external cron system.
 
 Refer to the [Architecture Document](architecture.md) for a visual representation of how these components interact. 

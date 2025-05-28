@@ -28,7 +28,7 @@ The implementation is broken down into distinct tasks, treated as mini-phases, t
 
 6.  **Phase 6: Automation & Maintenance (Backend)**
     *   **Task:** Implement Daily Reset Backend Job (`backend/jobs/daily_reset.py`).
-    *   **Rationale:** Automate the daily process of resetting missions, ensuring the feature operates continuously without manual intervention.
+    *   **Rationale:** Automate the daily process of resetting missions (by archiving old, incomplete ones), ensuring the feature operates continuously without manual intervention. This was implemented using an in-app scheduler (APScheduler).
 
 ## Architectural Decisions & Trade-offs
 
@@ -56,12 +56,21 @@ Based on the [Implementation Plan](Requirement/userstory/story1/implementation_p
     *   Mission dates are handled with respect to this timezone, often by converting to UTC for storage/comparison (e.g., `get_utc7_today_midnight_utc0`).
     *   **Decision:** Crucial for features like daily resets that depend on a specific local time.
 *   **Frontend-Backend Contract:** Clear API definitions are important. Using Pydantic models in FastAPI (e.g., `DailyMissionDocument`, generic `MissionResponse`, `MissionProgressUpdatePayload`) and corresponding TypeScript interfaces in the frontend helps maintain this contract for features like fetching missions with progress and updating progress.
+*   **Background Jobs (Daily Reset):**
+    *   Implemented using APScheduler integrated into the FastAPI application (`backend/main.py`) to run the job defined in `backend/jobs/daily_reset.py`.
+    *   **Decision:** In-app scheduling chosen for ease of environment management and direct access to application services. This is suitable for the current scale and complexity. An external cron system could be considered if jobs become more numerous or resource-intensive, requiring decoupling.
+    *   **Trade-off:** If the application scales to multiple instances, care must be taken to ensure scheduled jobs run as intended (e.g., only on one instance or by using distributed locking if the job isn't idempotent, though the current archival job is designed to be idempotent).
 
 ## Constraints & Considerations
 
 *   **Focus on MVP:** The initial tasks are geared towards delivering the core Daily Mission feature.
 *   **Test Coverage:** Each task in the implementation plan specifies requirements for automated tests (unit and integration) and manual verification.
 *   **Scalability:** While initial mocks are used, the choice of FastAPI and MongoDB is conducive to future scaling.
+*   Migration from mock DB in `mission_service.py` to a real MongoDB instance.
+*   Comprehensive error logging and monitoring.
+*   More sophisticated mission generation logic (e.g., personalized missions based on user performance).
+*   Ensuring robust behavior of the in-app scheduler in a scaled environment (if applicable in the future).
+*   CI/CD pipelines for automated testing and deployment.
 
 ## Future Work (Inferred & Potential)
 

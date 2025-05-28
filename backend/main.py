@@ -1,9 +1,17 @@
 from fastapi import FastAPI
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import logging
 
 # Import routers from your application
 from backend.routes import missions # Assuming missions.py is in backend/routes
+from backend.jobs.daily_reset import run_daily_reset_job # Import the job
 # If you have other routers, import them here as well
 # from backend.routes import another_router 
+
+# Configure logging for APScheduler and the job
+logging.basicConfig()
+logging.getLogger('apscheduler').setLevel(logging.INFO)
+job_logger = logging.getLogger('backend.jobs.daily_reset') # Use the logger from the job module
 
 # Initialize the FastAPI application
 app = FastAPI(
@@ -11,6 +19,25 @@ app = FastAPI(
     description="API for the EdTech platform, including daily missions.",
     version="0.1.0"
 )
+
+# Initialize scheduler
+scheduler = AsyncIOScheduler(timezone="UTC") # Explicitly set timezone to UTC for the scheduler
+
+@app.on_event("startup")
+async def startup_event():
+    # Add the job to the scheduler
+    # Run daily at 4:00 AM UTC
+    scheduler.add_job(run_daily_reset_job, 'cron', hour=4, minute=0, misfire_grace_time=3600)
+    # Start the scheduler
+    scheduler.start()
+    job_logger.info("Scheduler started and daily_reset_job scheduled.")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    # Shutdown the scheduler
+    if scheduler.running:
+        scheduler.shutdown()
+        job_logger.info("Scheduler shut down.")
 
 # Include routers into the application
 # The prefix will ensure all routes in missions.router start with /api

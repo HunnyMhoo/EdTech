@@ -109,6 +109,16 @@ def test_mission_status_enum_values(valid_mission_data):
     mission_complete = DailyMissionDocument(**data_complete)
     assert mission_complete.status == MissionStatus.COMPLETE
 
+    data_archived = valid_mission_data.copy()
+    data_archived["status"] = MissionStatus.ARCHIVED
+    mission_archived = DailyMissionDocument(**data_archived)
+    assert mission_archived.status == MissionStatus.ARCHIVED
+
+    data_archived_str = valid_mission_data.copy()
+    data_archived_str["status"] = "archived"
+    mission_archived_str = DailyMissionDocument(**data_archived_str)
+    assert mission_archived_str.status == MissionStatus.ARCHIVED
+
     with pytest.raises(ValidationError):
         invalid_data = valid_mission_data.copy()
         invalid_data["status"] = "pending_approval" # Not a valid status

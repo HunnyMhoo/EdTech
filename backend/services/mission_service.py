@@ -198,6 +198,31 @@ async def generate_daily_mission(user_id: str, current_datetime_utc: Optional[da
     # print(f"Service: Generated and saved new mission for user {user_id} for date {today_target_tz_date}")
     return saved_mission
 
+async def archive_past_incomplete_missions() -> int:
+    """
+    Archives missions from previous days (UTC+7) that are not yet complete or already archived.
+    Returns the count of archived missions.
+    """
+    archived_count = 0
+    today_utc7 = get_utc7_today_date()
+    # print(f"Service: Running archive job for missions before date (UTC+7): {today_utc7}")
+
+    missions_to_update: List[DailyMissionDocument] = []
+    for mission_doc in _mock_db_missions:
+        if mission_doc.date < today_utc7:
+            if mission_doc.status not in [MissionStatus.COMPLETE, MissionStatus.ARCHIVED]:
+                missions_to_update.append(mission_doc)
+    
+    for mission_doc in missions_to_update:
+        mission_doc.status = MissionStatus.ARCHIVED
+        mission_doc.updated_at = datetime.now(timezone.utc)
+        _save_mission_to_db(mission_doc) # This will update the existing entry in _mock_db_missions
+        archived_count += 1
+        # print(f"Service: Archived mission for user {mission_doc.user_id} for date {mission_doc.date}")
+
+    # print(f"Service: Archived {archived_count} missions.")
+    return archived_count
+
 # --- Placeholder for other functions if they were present and needed changes ---
 # For example, the original file had placeholders or other utility functions.
 # We'll keep the structure, but the primary focus was on the core mission logic.

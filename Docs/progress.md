@@ -197,12 +197,65 @@ Based on the initial [User Story 1 Implementation Plan](Requirement/userstory/st
 *   **Task 5: Handle Mission Resume on Reopen (`frontend/screens/MissionScreen.tsx`)**
     *   **Status:** Completed. `MissionScreen.tsx` created and implements fetching, displaying, and saving mission progress.
 *   **Task 6: Implement Daily Reset Backend Job (`backend/jobs/daily_reset.py`)**
-    *   **Status:** Not started.
+    *   **Status:** Completed. Implemented an in-app scheduled job (APScheduler) to archive old, incomplete missions daily at 4 AM UTC. Logic resides in `backend/jobs/daily_reset.py`, service function `archive_past_incomplete_missions` in `backend/services/mission_service.py`, and scheduler configured in `backend/main.py`. `MissionStatus` enum updated with `ARCHIVED`.
 
 *   **General:**
     *   Full LINE Login integration.
     *   Migration from mock DB to a real MongoDB instance.
     *   Migration of question pool from CSV to database.
     *   Comprehensive unit tests for all new/modified service logic and components.
+
+---
+
+## [2024-07-25] Daily Mission Reset Job (Task 6)
+**Author:** Principal Software Engineer
+
+### Summary
+Implemented an automated daily job to reset/archive past missions. This ensures users are presented with fresh missions daily as per UTC+7 timezone logic. The job is scheduled using an in-app scheduler (APScheduler) and updates the status of old, incomplete missions to "archived".
+
+### Details
+-   **Data Model Enhancement (`backend/models/daily_mission.py`):**
+    -   Added `ARCHIVED = "archived"` to the `MissionStatus` enum in `DailyMissionDocument`.
+-   **Service Layer (`backend/services/mission_service.py`):**
+    -   Created a new asynchronous function `archive_past_incomplete_missions()`.
+    -   This function identifies missions with a `date` before the current UTC+7 date and whose `status` is neither `COMPLETE` nor `ARCHIVED`.
+    -   It updates the `status` of these missions to `ARCHIVED` and updates their `updated_at` timestamp.
+    -   Uses the existing `_mock_db_missions` list and `_save_mission_to_db` for mock persistence.
+    -   Includes logging for the number of missions archived.
+-   **Job Implementation (`backend/jobs/daily_reset.py`):**
+    -   Created a new file to house the job logic.
+    -   Defined an asynchronous function `run_daily_reset_job()` that calls `archive_past_incomplete_missions()`.
+    -   Implemented logging for job start, completion, and any errors encountered during execution.
+-   **Scheduler Integration (`backend/main.py`):**
+    -   Integrated `APScheduler` (specifically `AsyncIOScheduler`) into the FastAPI application.
+    -   The `run_daily_reset_job` is scheduled to run daily at 04:00 UTC.
+    -   The scheduler is started on FastAPI application startup and shut down gracefully on application shutdown.
+    -   Added logging for scheduler events (start, shutdown, job scheduling).
+-   **Unit Testing:**
+    -   **`backend/tests/unit/test_daily_mission_model.py`**: Added tests to verify the new `ARCHIVED` status in `MissionStatus` enum.
+    -   **`backend/tests/unit/test_mission_service.py`**: Created new tests for `archive_past_incomplete_missions`, covering scenarios like:
+        -   No missions to archive.
+        -   Only current day missions (should not be archived).
+        -   Archiving past incomplete missions while leaving completed/already archived/current missions untouched.
+        -   Correctly updating `status` and `updated_at` fields.
+        -   Uses a fixture to clear `_mock_db_missions` before each test.
+    -   **`backend/tests/unit/test_daily_reset_job.py`**: Created new tests for `run_daily_reset_job`, covering:
+        -   Successful job execution and logging.
+        -   Job execution when the service layer archives zero missions.
+        -   Error handling and logging when the service layer raises `MissionGenerationError` or other exceptions.
+        -   Uses `unittest.mock.patch` for service calls and `caplog` fixture for log verification.
+
+### Engineering Standards Followed:
+-   Modular design: Job logic separated in `jobs` package, service logic in `services`.
+-   In-app scheduling preferred for managing the job lifecycle with the application.
+-   Soft-delete strategy (`ARCHIVED` status) for missions, preserving data.
+-   Comprehensive logging for the job and scheduler operations.
+-   Timezone consistency: Scheduler operates in UTC, job logic uses UTC+7 for mission dates.
+-   Unit tests cover new model states, service logic, and job execution, including error handling.
+
+### Next Steps:
+-   Manual verification of the scheduler and job by temporarily adjusting schedule frequency and observing mock DB state and logs.
+-   Ensure `APScheduler` is added to project dependencies (e.g., `requirements.txt`).
+-   Transition from mock DB to a real MongoDB instance will require updating `archive_past_incomplete_missions` to use actual DB queries and updates.
 
 --- 
