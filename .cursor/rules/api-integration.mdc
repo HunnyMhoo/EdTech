@@ -1,52 +1,59 @@
 ---
 description: API contract documentation and integration patterns between frontend and backend services
-globs: backend/routes/**/*.py,backend/models/*.py,frontend/services/*.ts
+globs: backend/routes/*.py,backend/models/api_*.py,backend/services/*_service.py
 alwaysApply: false
 ---
 
 
 # api-integration
 
-## API Contract
+## API Contract Documentation
 
-### Mission Endpoints
-`/missions/today` 
-- Retrieves or generates user's daily mission set
-- Returns 5 unique questions for the current date
-- Uses UTC+7 timezone for date calculations
-- Requires user authentication (placeholder implemented)
+### Mission Management Endpoints
+
+#### Get Today's Mission
+**Path:** `backend/routes/missions.py`
+**Importance Score:** 85
+- Retrieves user-specific daily mission based on UTC+7 timezone
+- Returns mission data including question IDs, current progress, and status
+- Uses `MissionResponse` model for structured response format
+
+#### Update Mission Progress  
+**Path:** `backend/routes/missions.py`
+**Importance Score:** 80
+- Accepts user answers and progress updates
+- Validates mission state transitions
+- Returns updated mission status and next question index
 
 ### Response Models
-File: `backend/models/api_responses.py`
-- Daily mission response includes:
-  - Mission date (UTC+7)
-  - Set of 5 unique questions
-  - User-specific mission identifiers
+**Path:** `backend/models/api_responses.py`
+**Importance Score:** 75
 
-### Error Handling
-Custom domain exceptions with specific error responses:
-- MissionGenerationError
-- NoQuestionsAvailableError  
-- MissionAlreadyExistsError
+#### MissionResponse
+- Mission status (NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED)
+- Current question index
+- Question IDs array
+- User answers collection
+- Timestamps for mission events
 
-## Integration Points
+#### ErrorResponse
+- Error code mapping for mission-specific failures
+- Structured error messages for:
+  - MissionAlreadyExistsError
+  - NoQuestionsAvailableError
+  - Invalid mission state transitions
 
-### Frontend Mission Service
-File: `frontend/services/missionApi.ts`
-- Abstracts backend API interactions
-- Handles daily mission retrieval 
-- Development mock data support
+### Integration Points
 
-### Backend Route Handlers 
-File: `backend/routes/missions.py`
-- Mission generation endpoint
-- User context handling
-- Date-based mission validation
+#### Mission Service Interface
+**Path:** `backend/services/mission_service.py`
+**Importance Score:** 90
+- Handles mission generation requests from API layer
+- Manages mission state transitions and validation
+- Integrates with daily reset job for mission archival
+- Enforces timezone-specific mission availability
 
-Business Logic Importance Scores:
-- Mission API Contract: 95 (Core integration specification)
-- Error Domain Models: 85 (Critical for business state handling)
-- Frontend Integration Layer: 75 (Key service abstractions)
+The API contract emphasizes mission management operations uniquely designed for the Thai educational context, with specific handling of UTC+7 timezone requirements and daily mission workflows.
 
 $END$
 

@@ -22,10 +22,10 @@ async def get_current_user_id() -> str:
     """Simulates getting the current user ID. Replace with actual authentication logic."""
     return "test_user_123" # Hardcoded for now
 
-@router.get("/missions/today", response_model=MissionResponse[DailyMissionDocument])
-async def get_today_mission_for_current_user(user_id: str = Depends(get_current_user_id)):
+@router.get("/missions/daily/{user_id}", response_model=MissionResponse[DailyMissionDocument])
+async def get_daily_mission_for_user(user_id: str):
     """
-    Retrieve today's mission (UTC+7) for the currently authenticated user,
+    Retrieve today's mission (UTC+7) for the specified user,
     including any progress.
     """
     try:
@@ -50,13 +50,13 @@ async def get_today_mission_for_current_user(user_id: str = Depends(get_current_
             detail=f"An unexpected error occurred: {str(e)}"
         )
 
-@router.put("/missions/today/progress", response_model=MissionResponse[DailyMissionDocument])
-async def update_today_mission_progress(
+@router.put("/missions/daily/{user_id}/progress", response_model=MissionResponse[DailyMissionDocument])
+async def update_daily_mission_progress(
+    user_id: str,
     payload: MissionProgressUpdatePayload,
-    user_id: str = Depends(get_current_user_id)
 ):
     """
-    Update the progress of today's mission for the currently authenticated user.
+    Update the progress of today's mission for the specified user.
     """
     try:
         updated_mission = await update_mission_progress(

@@ -74,45 +74,40 @@ This document tracks the implementation progress of the EdTech Platform, grouped
 
 ---
 
-## [YYYY-MM-DD] Frontend Daily Mission Display (Task 4)
-**Author:** Principal Software Engineer
+## [Current Date - YYYY-MM-DD] Frontend: Interactive Question Display & Navigation
+**Author:** AI Assistant (Gemini)
 
 ### Summary
-Implemented the initial frontend integration for the Daily Mission feature. This includes a React Native screen to fetch and display mission data from the (currently mocked) backend API, along with loading and error states. A dedicated API service module was created for frontend-backend communication, and unit tests were established for this service.
+Enhanced the frontend `HomeScreen.tsx` to provide an interactive experience for daily missions. Users can now view one question at a time, navigate between questions using "Previous" and "Next" buttons, and input their answers. This sets the stage for saving progress and submitting missions.
 
 ### Details
-- **API Service (`frontend/services/missionApi.ts`):**
-  - Created `fetchDailyMission` function to retrieve daily mission data.
-  - Currently uses a mocked API response within the service itself, simulating a network delay and returning a predefined mission structure.
-  - Includes TypeScript interfaces (`Mission`, `Question`) for data structure.
-  - Basic error handling and console logging for API call failures.
-- **HomeScreen Component (`frontend/screens/HomeScreen.tsx`):**
-  - React Native functional component using `useState` and `useEffect` hooks.
-  - Fetches mission data on component mount via `fetchDailyMission`.
-  - Manages and displays three states:
-    - Loading: Shows an `ActivityIndicator` and loading text.
-    - Error: Shows an error message and a "Try Again" button.
-    - Success: Displays the mission questions (or a "No mission" message).
-  - Uses basic React Native `StyleSheet` for styling, with placeholders for future TailwindCSS integration.
-- **Unit Testing (`frontend/services/__tests__/missionApi.test.ts`):**
-  - Basic Jest test suite for `fetchDailyMission`.
-  - Mocks `global.fetch` (though not currently used by `fetchDailyMission` due to its internal mock).
-  - Tests currently verify the behavior of the service with its own mocked data. Tests for actual `fetch` calls are commented out, pending removal of the internal mock in `missionApi.ts`.
-  - Linter errors related to missing Jest types (`@types/jest`) were noted but not resolved as part_of this task, as it typically requires project-level dependency setup.
+- **Component State Management (`frontend/screens/HomeScreen.tsx`):**
+  - Introduced `currentQuestionDisplayIndex` state to track the active question.
+  - Added `userAnswers` state (a `Record<string, string>`) to store answers entered by the user, mapping `question_id` to the answer text.
+
+- **UI Enhancements & Navigation (`frontend/screens/HomeScreen.tsx`):**
+  - Modified the render logic to display only the question corresponding to `currentQuestionDisplayIndex` from the `mission.questions` array.
+  - Added "Previous" and "Next" buttons for navigating through the questions.
+    - Button states (enabled/disabled) are managed based on the current index and total number of questions.
+  - Implemented `handleNextQuestion` and `handlePreviousQuestion` functions to update `currentQuestionDisplayIndex`.
+  - Added a `TextInput` component for the current question, allowing users to type their answers.
+    - The `value` of the `TextInput` is bound to `userAnswers[currentQuestion.question_id]`.
+    - `onChangeText` calls `handleAnswerChange(questionId, text)` to update the `userAnswers` state.
+  - Included a progress indicator displaying "Question X of Y".
+
+- **Styling:**
+  - Added basic styles for the new `TextInput` and the navigation container elements.
 
 ### Engineering Standards Followed:
-- Modular design (API service separated from screen component).
-- Explicit variable names.
-- Handling of loading, error, and data states in the UI.
-- Placeholder for comprehensive error handling (e.g., remote logging).
-- Unit tests for the API service layer.
+- Component-level state management for UI interactivity.
+- Clear separation of concerns for navigation and answer handling logic within the component.
+- User-friendly navigation with disabled states for buttons at boundaries.
 
-### Next Steps (for Frontend Task 4 & related):
-- Replace internal mock in `missionApi.ts` with actual `fetch` calls to the backend.
-- Uncomment and adapt unit tests in `missionApi.test.ts` for real fetch scenarios.
-- Integrate a styling solution like TailwindCSS.
-- Implement full UI/UX for question interaction and mission submission (part of subsequent tasks).
-- Address linter errors by ensuring appropriate type definitions are installed and configured in the frontend project.
+### Next Steps:
+- Implement functionality to save `userAnswers` to the backend via `updateMissionProgressApi`.
+- Add a "Submit Mission" button and related logic.
+- Further UI/UX refinements for answer input and feedback.
+- Unit tests for the new interactive elements and state logic in `HomeScreen.tsx`.
 
 ---
 

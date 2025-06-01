@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ActivityIndicator, Button, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Button, StyleSheet, TextInput } from 'react-native';
 import { fetchDailyMission, Mission, Question } from '../services/missionApi';
 
 // Placeholder for TailwindCSS or other styling solution
@@ -10,6 +10,8 @@ const HomeScreen: React.FC = () => {
   const [mission, setMission] = useState<Mission | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentQuestionDisplayIndex, setCurrentQuestionDisplayIndex] = useState<number>(0);
+  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({}); // { question_id: answer_text }
 
   const loadMission = async () => {
     setIsLoading(true);
@@ -29,6 +31,25 @@ const HomeScreen: React.FC = () => {
     loadMission();
   }, []);
 
+  const handleNextQuestion = () => {
+    if (mission && currentQuestionDisplayIndex < mission.questions.length - 1) {
+      setCurrentQuestionDisplayIndex(currentQuestionDisplayIndex + 1);
+    }
+  };
+
+  const handlePreviousQuestion = () => {
+    if (currentQuestionDisplayIndex > 0) {
+      setCurrentQuestionDisplayIndex(currentQuestionDisplayIndex - 1);
+    }
+  };
+
+  const handleAnswerChange = (questionId: string, text: string) => {
+    setUserAnswers(prevAnswers => ({
+      ...prevAnswers,
+      [questionId]: text,
+    }));
+  };
+
   if (isLoading) {
     return (
       <View style={styles.containerCentered}>
@@ -47,7 +68,7 @@ const HomeScreen: React.FC = () => {
     );
   }
 
-  if (!mission || mission.questions.length === 0) {
+  if (!mission || !mission.questions || mission.questions.length === 0) {
     return (
       <View style={styles.containerCentered}>
         <Text style={styles.text}>No mission available for today. Check back later!</Text>
@@ -55,16 +76,40 @@ const HomeScreen: React.FC = () => {
     );
   }
 
+  const currentQuestion = mission?.questions[currentQuestionDisplayIndex];
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Your Daily Mission</Text>
-      {mission.questions.map((question: Question, index: number) => (
-        <View key={question.id} style={styles.questionContainer}>
-          <Text style={styles.questionText}>{index + 1}. {question.text}</Text>
-          {/* Placeholder for answer input/options */}
+      {currentQuestion && (
+        <View key={currentQuestion.question_id} style={styles.questionContainer}>
+          <Text style={styles.questionText}>{currentQuestionDisplayIndex + 1}. {currentQuestion.question_text}</Text>
+          <TextInput
+            style={styles.input}
+            onChangeText={(text) => handleAnswerChange(currentQuestion.question_id, text)}
+            value={userAnswers[currentQuestion.question_id] || ''}
+            placeholder="Type your answer here"
+          />
+          {/* You can also display other question details here if needed */}
+          {/* e.g., <Text style={styles.skillAreaText}>Skill: {currentQuestion.skill_area}</Text> */}
         </View>
-      ))}
-      {/* Placeholder for mission submission button */}
+      )}
+
+      <View style={styles.navigationContainer}>
+        <Button title="Previous" onPress={handlePreviousQuestion} disabled={currentQuestionDisplayIndex === 0} />
+        <Text style={styles.progressText}>
+          Question {currentQuestionDisplayIndex + 1} of {mission?.questions.length || 0}
+        </Text>
+        <Button 
+          title="Next" 
+          onPress={handleNextQuestion} 
+          disabled={!mission || currentQuestionDisplayIndex === mission.questions.length - 1} 
+        />
+      </View>
+      
+      {/* Placeholder for mission submission button - to be added later */}
+      {/* We can also add a button here to log current answers for debugging */}
+      {/* <Button title="Log Answers" onPress={() => console.log(userAnswers)} /> */}
     </View>
   );
 };
@@ -111,8 +156,26 @@ const styles = StyleSheet.create({
   },
   questionText: {
     fontSize: 18,
+    marginBottom: 10, // Added margin for spacing before input
     // Example: text-xl
   },
+  input: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    backgroundColor: 'white',
+  },
+  navigationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  progressText: {
+    fontSize: 14,
+  }
 });
 
 export default HomeScreen; 

@@ -7,20 +7,23 @@ export interface Answer {
   answer: any; // Can be string, number, object, depending on question type
 }
 
+// Define the Question type based on the backend model
 export interface Question {
-  question_id: string; // Assuming this is the identifier for a question from the backend
-  text: string;
-  // Add other question-related fields if necessary (e.g., options for MCQs)
+  question_id: string;
+  question_text: string;
+  skill_area: string;
+  difficulty_level: number;
+  // Add any other fields that your backend's Question model might have
 }
 
 // Updated Mission interface to match DailyMissionDocument from backend
 export interface Mission {
   user_id: string;
   date: string; // ISO date string (e.g., "2023-10-27")
-  question_ids: string[]; // List of question_id strings
-  status: 'not_started' | 'in_progress' | 'complete';
+  questions: Question[]; // Changed from question_ids: string[]
+  status: 'not_started' | 'in_progress' | 'complete' | 'archived';
   current_question_index: number;
-  answers: Answer[];
+  answers: Array<{ question_id: string; answer: any }>; // Consider defining a more specific answer type
   created_at: string; // ISO datetime string
   updated_at: string; // ISO datetime string
   // Questions might be fetched separately or embedded. For now, assuming question_ids are primary.
@@ -36,8 +39,8 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-export const fetchDailyMission = async (): Promise<Mission> => {
-  const endpoint = `${API_BASE_URL}/api/missions/today`;
+export const fetchDailyMission = async (userId: string = 'test_user_123'): Promise<Mission> => {
+  const endpoint = `${API_BASE_URL}/api/missions/daily/${userId}`;
 
   try {
     console.log(`Fetching daily mission from: ${endpoint}`);
@@ -82,9 +85,10 @@ export interface MissionProgressUpdatePayload {
 }
 
 export const updateMissionProgressApi = async (
+  userId: string = 'test_user_123',
   payload: MissionProgressUpdatePayload
 ): Promise<Mission> => {
-  const endpoint = `${API_BASE_URL}/api/missions/today/progress`;
+  const endpoint = `${API_BASE_URL}/api/missions/daily/${userId}/progress`;
 
   try {
     console.log(`Updating mission progress to: ${endpoint}`, payload);
@@ -131,10 +135,12 @@ const getMockMission = async (): Promise<Mission> => {
     return {
       user_id: 'mock_user_123',
       date: new Date().toISOString().split('T')[0],
-      question_ids: ['q1_mock', 'q2_mock', 'q3_mock', 'q4_mock', 'q5_mock'],
-      // For mock purposes, we might need to provide full Question objects if MissionScreen expects them directly.
-      // However, the Mission interface defined above uses question_ids: string[], implying details might be looked up elsewhere or are simple.
-      // Let's assume question_ids are sufficient and MissionScreen will map them to text if needed from a local source for mock.
+      questions: ['q1_mock', 'q2_mock', 'q3_mock', 'q4_mock', 'q5_mock'].map(id => ({
+        question_id: id,
+        question_text: id,
+        skill_area: 'Mock',
+        difficulty_level: 1,
+      })),
       status: 'not_started',
       current_question_index: 0,
       answers: [],

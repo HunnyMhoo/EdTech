@@ -10,6 +10,26 @@ from pydantic import BaseModel, Field
 # we are using basic types like str for IDs.
 
 
+class Question(BaseModel):
+    """
+    Pydantic model representing a single question.
+    """
+    question_id: str = Field(..., description="The unique identifier for the question.")
+    question_text: str = Field(..., description="The text of the question.")
+    skill_area: str = Field(..., description="The skill area the question belongs to.")
+    difficulty_level: int = Field(..., description="The difficulty level of the question.")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "question_id": "GATQ001",
+                "question_text": "What is the synonym for 'ephemeral'?",
+                "skill_area": "Vocabulary",
+                "difficulty_level": 1
+            }
+        }
+
+
 class MissionStatus(str, Enum):
     """
     Represents the completion status of a daily mission.
@@ -27,11 +47,11 @@ class DailyMissionDocument(BaseModel):
     """
     user_id: str = Field(..., description="The unique identifier for the user.")
     date: datetime.date = Field(..., description="The calendar date for which this mission is assigned (YYYY-MM-DD).")
-    question_ids: List[str] = Field(
+    questions: List[Question] = Field(
         ...,
-        description="A list of question identifiers that make up the mission.",
+        description="A list of question objects that make up the mission.",
         min_items=5,
-        max_items=5  # Assuming a fixed number of 5 questions per mission as per User Story 1.1
+        max_items=5
     )
     status: MissionStatus = Field(
         default=MissionStatus.NOT_STARTED,
@@ -68,7 +88,20 @@ class DailyMissionDocument(BaseModel):
             "example": {
                 "user_id": "user_123_abc",
                 "date": "2023-10-27",
-                "question_ids": ["q1", "q2", "q3", "q4", "q5"],
+                "questions": [
+                    {
+                        "question_id": "GATQ001",
+                        "question_text": "What is the synonym for 'ephemeral'?",
+                        "skill_area": "Vocabulary",
+                        "difficulty_level": 1
+                    },
+                    {
+                        "question_id": "GATQ002",
+                        "question_text": "Identify the logical fallacy...",
+                        "skill_area": "Logical Reasoning",
+                        "difficulty_level": 2
+                    }
+                ],
                 "status": "not_started",
                 "current_question_index": 0,
                 "answers": [{"question_id": "q1", "answer": "option_a"}],

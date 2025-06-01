@@ -1,48 +1,50 @@
 ---
-description: Documentation for mission generation algorithm including question selection, uniqueness logic, and error handling
-globs: backend/services/mission_service.py,backend/routes/missions.py,backend/models/daily_mission.py
+description: Specifies mission generation logic for daily educational challenges and question selection
+globs: backend/services/mission_service.py,backend/jobs/daily_reset.py,backend/models/daily_mission.py
 alwaysApply: false
 ---
 
 
 # mission-generation-algorithm
 
-## Core Generation Logic (Importance: 95)
-- Generates unique sets of 5 questions per user per day
-- Uses UTC+7 timezone alignment for target audience date calculations
-- Validates existing missions before generating new ones to prevent duplicates
-- Maintains user-specific mission assignment tracking
+### Core Mission Generation Logic (Importance: 95)
+- Generates 5 randomly selected questions per user daily
+- Uses UTC+7 timezone alignment for Thailand-specific mission timing
+- Enforces uniqueness constraints to prevent duplicate missions per user per day
+- Validates question pool availability before mission creation
 
-## Error Handling & Validation (Importance: 85)
-Custom exception types:
-- `MissionGenerationError`: General generation failures
-- `NoQuestionsAvailableError`: Insufficient questions for mission creation 
-- `MissionAlreadyExistsError`: Duplicate mission prevention
+### Mission Status Management (Importance: 85)
+- Tracks mission states:
+  - NOT_STARTED: Initial state for newly generated missions
+  - IN_PROGRESS: Active missions being attempted
+  - COMPLETE: Successfully finished missions
+  - ARCHIVED: Past incomplete missions
+- Handles transitions between states based on user progress
 
-## Storage Implementation (Importance: 80)
-- In-memory dictionary storage simulates database persistence
-- Stores missions by user ID and date
-- Maintains mission-user mappings for uniqueness validation
+### Daily Reset Workflow (Importance: 80)
+- Executes at 4:00 AM UTC daily
+- Archives incomplete missions from previous days
+- Maintains data integrity by only archiving eligible missions
+- Prepares system for new daily mission generation
 
-## Key File Components
+### Question Selection Rules (Importance: 90)
+- Randomly selects from available question pool
+- Prevents mission creation if insufficient questions exist
+- Raises NoQuestionsAvailableError when pool is depleted
+- Validates against MissionAlreadyExistsError for same day/user
+
+### Progress Tracking (Importance: 75)
+- Stores current question index
+- Maintains answer history
+- Updates mission status based on completion
+- Records timestamps for mission events
+
+File Paths:
 ```
 backend/services/mission_service.py
-├── Mission generation core logic
-├── Timezone handling (UTC+7)
-└── Exception handling
-
+backend/jobs/daily_reset.py
 backend/models/daily_mission.py
-└── Mission data structure definition
-
-backend/routes/missions.py
-└── Mission retrieval endpoint (/missions/today)
 ```
-
-## Business Rules
-1. Each user receives exactly 5 questions per daily mission
-2. Missions regenerate at UTC+7 midnight
-3. Users cannot receive duplicate missions on the same day
-4. Questions must be unique within each mission set
 
 $END$
 
