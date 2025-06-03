@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import asyncio
 
-from backend.models.daily_mission import DailyMissionDocument, MissionStatus, Question # Added Question import
+from backend.models.daily_mission import DailyMissionDocument, MissionStatus, Question, ChoiceOption # Added ChoiceOption
 
 # Define the target timezone: UTC+7
 TARGET_TIMEZONE = timezone(timedelta(hours=7))
@@ -38,7 +38,8 @@ _ALL_QUESTIONS: Dict[str, Question] = {}
 def _load_questions_from_csv(file_path: Path) -> Dict[str, Question]:
     """
     Loads all question details from a CSV file into a dictionary.
-    Assumes CSV has headers: question_id, question_text, skill_area, difficulty_level.
+    Assumes CSV has headers: question_id, question_text, skill_area, difficulty_level, feedback_th,
+    and optionally choice_N_id, choice_N_text, correct_answer_id.
     """
     questions: Dict[str, Question] = {}
     if not file_path.exists():
@@ -46,27 +47,62 @@ def _load_questions_from_csv(file_path: Path) -> Dict[str, Question]:
     try:
         with open(file_path, mode='r', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
-            for row in reader:
-                if row.get('question_id') and row.get('question_text'): # Basic validation
-                    try:
-                        question = Question(
-                            question_id=row['question_id'],
-                            question_text=row['question_text'],
-                            skill_area=row.get('skill_area', 'N/A'),
-                            difficulty_level=int(row.get('difficulty_level', 0))
-                        )
-                        questions[question.question_id] = question
-                    except ValueError as ve:
-                        print(f"Warning: Skipping row due to data conversion error: {row} - {ve}")
-                    except Exception as e_row: # Catch other Pydantic validation or unexpected errors per row
-                        print(f"Warning: Skipping row due to error: {row} - {e_row}")
+            if not reader.fieldnames:
+                raise MissionGenerationError(f"CSV file {file_path} is empty or has no headers.")
+
+            for row_num, row in enumerate(reader, start=2): # start=2 because 1 is header
+                question_id = row.get('question_id')
+                question_text = row.get('question_text')
+
+                if not question_id:
+                    print(f"Warning: Skipping row {row_num} due to missing question_id: {row}")
+                    continue
+
+                if not question_text:
+                    print(f"Warning: Skipping row {row_num} due to missing question_text for question_id '{question_id}': {row}")
+                    continue
+                
+                # Parse choices
+                parsed_choices: List[ChoiceOption] = []
+                for i in range(1, 5): # Assuming up to 4 choices (choice_1_id, choice_1_text, etc.)
+                    choice_id = row.get(f'choice_{i}_id')
+                    choice_text = row.get(f'choice_{i}_text')
+                    if choice_id and choice_text: # Only add if both id and text are present
+                        parsed_choices.append(ChoiceOption(id=choice_id, text=choice_text))
+                    elif choice_id or choice_text: # If one is present but not the other, it's a data issue
+                        print(f"Warning: Malformed choice data for question_id '{question_id}', choice index {i}. ID: '{choice_id}', Text: '{choice_text}'. Skipping this choice.")
+                
+                correct_answer_id = row.get('correct_answer_id')
+                if correct_answer_id and not any(c.id == correct_answer_id for c in parsed_choices):
+                    print(f"Warning: correct_answer_id '{correct_answer_id}' for question_id '{question_id}' does not match any parsed choice IDs. Setting to None.")
+                    correct_answer_id = None # Or handle as an error, depending on strictness
+
+                try:
+                    question = Question(
+                        question_id=question_id,
+                        question_text=question_text,
+                        skill_area=row.get('skill_area', 'N/A'),
+                        difficulty_level=int(row.get('difficulty_level', 0) or 0), # ensure it's not None or empty string
+                        feedback_th=row.get('feedback_th', ''),
+                        choices=parsed_choices,
+                        correct_answer_id=correct_answer_id
+                    )
+                    questions[question.question_id] = question
+                    if 'feedback_th' in row and not row['feedback_th']:
+                        # This check is fine, but feedback_th has a default in Pydantic model
+                        print(f"Info: Question ID {question_id} has an empty feedback_th value in CSV.")
+                    if not parsed_choices and 'choice_1_id' in reader.fieldnames: # If choice columns exist but none parsed
+                        print(f"Info: Question ID {question_id} has choice columns in CSV but no valid choices were parsed.")
+
+                except ValueError as ve:
+                    print(f"Warning: Skipping row {row_num} for question_id '{question_id}' due to data conversion error: {row} - {ve}")
+                except Exception as e_row: # Catch other Pydantic validation or unexpected errors per row
+                    print(f"Warning: Skipping row {row_num} for question_id '{question_id}' due to error processing: {row} - {e_row}")
     except Exception as e:
-        # Log this error appropriately
         raise MissionGenerationError(f"Critical error reading or parsing question file {file_path}: {e}") from e
     
     if not questions:
-        # This is a critical situation if the file exists but no questions could be loaded.
-        raise NoQuestionsAvailableError(f"No valid questions could be loaded from {file_path}.")
+        raise NoQuestionsAvailableError(f"No valid questions could be loaded from {file_path}. Ensure the file is not empty and data is correctly formatted.")
         
     return questions
 
@@ -78,6 +114,9 @@ def _initialize_question_cache():
             _ALL_QUESTIONS = _load_questions_from_csv(QUESTIONS_FILE_PATH)
             if _ALL_QUESTIONS:
                 print(f"Successfully loaded {len(_ALL_QUESTIONS)} questions into cache.")
+                if len(_ALL_QUESTIONS) > 0:
+                    first_q_key = list(_ALL_QUESTIONS.keys())[0]
+                    print(f"DEBUG: First loaded question ({first_q_key}): {_ALL_QUESTIONS[first_q_key].model_dump_json(indent=2)}")
             else:
                 # This case should ideally be caught by _load_questions_from_csv raising an error
                 print(f"Warning: Question cache initialized but is empty after loading from {QUESTIONS_FILE_PATH}.")
@@ -90,6 +129,16 @@ def _initialize_question_cache():
 
 # Initialize cache when module is loaded.
 _initialize_question_cache()
+
+def get_question_details_by_id(question_id: str) -> Optional[Question]:
+    """Retrieves a single question by its ID from the global cache."""
+    # Ensure cache is loaded; _initialize_question_cache() is called on module import,
+    # but a check here could be defensive if there are concerns about it being cleared.
+    # However, for simplicity, we rely on the initial load.
+    # if not _ALL_QUESTIONS:
+    #     print("Warning: _ALL_QUESTIONS cache is empty when trying to fetch question by ID. Re-initializing.")
+    #     _initialize_question_cache() # This could have side effects if called repeatedly
+    return _ALL_QUESTIONS.get(question_id)
 
 def _find_mission_in_db(user_id: str, mission_date_target_tz: datetime) -> Optional[DailyMissionDocument]:
     """

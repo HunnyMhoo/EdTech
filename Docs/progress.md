@@ -253,4 +253,50 @@ Implemented an automated daily job to reset/archive past missions. This ensures 
 -   Ensure `APScheduler` is added to project dependencies (e.g., `requirements.txt`).
 -   Transition from mock DB to a real MongoDB instance will require updating `archive_past_incomplete_missions` to use actual DB queries and updates.
 
+---
+
+## [2024-07-09] Question Metadata API (Task 3, User Story 2)
+**Author:** Principal Software Engineer
+
+### Summary
+Implemented a new backend API endpoint to fetch full question metadata by ID, supporting lazy loading of question details (including choices and feedback) for frontend consumption. This enables the frontend to retrieve question text, choices, and Thai feedback on demand, keeping mission payloads lightweight and improving modularity.
+
+### Details
+- **Data Model Enhancements (`backend/models/daily_mission.py`):**
+  - Introduced `ChoiceOption` Pydantic model for structured multiple-choice options.
+  - Extended the `Question` model to include:
+    - `choices: List[ChoiceOption]` for answer options.
+    - `correct_answer_id: Optional[str]` to indicate the correct choice.
+  - Updated schema examples for OpenAPI documentation.
+
+- **CSV Loading Logic (`backend/services/mission_service.py`):**
+  - Updated `_load_questions_from_csv` to parse new columns: `choice_1_id`, `choice_1_text`, ..., `choice_4_id`, `choice_4_text`, and `correct_answer_id`.
+  - Populates the extended `Question` model with choices and correct answer from the CSV.
+  - Added robust error handling and logging for malformed or missing choice data.
+  - Added `get_question_details_by_id(question_id: str)` service function for efficient question lookup.
+
+- **API Endpoint (`backend/routes/questions.py`):**
+  - Created a new FastAPI router with `GET /questions/{question_id}` endpoint.
+  - Returns the full `Question` object (including choices and feedback) or a 404 error if not found.
+  - Includes OpenAPI documentation and descriptive error messages.
+
+- **Integration Tests (`backend/tests/integration/test_questions_route.py`):**
+  - Added tests for successful retrieval, not-found (404), and path parameter validation.
+  - Used FastAPI's `TestClient` and `unittest.mock.patch` for service layer isolation.
+  - Ensured all tests pass with 100% success rate.
+
+### Engineering Standards Followed
+- Modular design: clear separation between data models, service logic, and API routes.
+- Explicit variable names and type annotations for clarity.
+- Robust error handling and logging for data parsing and API errors.
+- Comprehensive automated test coverage for new endpoint.
+- No magic numbers; all choice-related logic uses named fields.
+- PEP 8 and FastAPI best practices for code and documentation.
+
+### Next Steps
+- Update `backend/data/gat_questions.csv` to include choice and correct answer columns for all questions.
+- Integrate the new `/questions/{id}` endpoint into the frontend for lazy loading of question details.
+- Monitor and optimize performance as the question pool grows.
+- Expand test coverage for edge cases (e.g., questions with missing or malformed choices).
+
 --- 

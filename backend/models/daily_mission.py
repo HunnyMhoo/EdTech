@@ -1,6 +1,6 @@
 import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +8,22 @@ from pydantic import BaseModel, Field
 # you would import PydanticObjectId from beanie or a similar construct
 # for fields that are MongoDB ObjectIds. For this example,
 # we are using basic types like str for IDs.
+
+
+class ChoiceOption(BaseModel):
+    """
+    Represents a single choice for a multiple-choice question.
+    """
+    id: str = Field(..., description="The unique identifier for the choice (e.g., 'a', 'b', '1', '2').")
+    text: str = Field(..., description="The text content of the choice.")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "id": "a",
+                "text": "Option A"
+            }
+        }
 
 
 class Question(BaseModel):
@@ -18,14 +34,24 @@ class Question(BaseModel):
     question_text: str = Field(..., description="The text of the question.")
     skill_area: str = Field(..., description="The skill area the question belongs to.")
     difficulty_level: int = Field(..., description="The difficulty level of the question.")
+    feedback_th: str = Field(default="", description="Thai feedback for the question.")
+    choices: List[ChoiceOption] = Field(default_factory=list, description="A list of multiple-choice options for the question.")
+    correct_answer_id: Optional[str] = Field(default=None, description="The ID of the correct choice from the 'choices' list.")
 
     class Config:
         schema_extra = {
             "example": {
                 "question_id": "GATQ001",
-                "question_text": "What is the synonym for 'ephemeral'?",
+                "question_text": "What is the synonym for \'ephemeral\'?",
                 "skill_area": "Vocabulary",
-                "difficulty_level": 1
+                "difficulty_level": 1,
+                "feedback_th": "นี่คือคำติชมตัวอย่าง",
+                "choices": [
+                    {"id": "a", "text": "Permanent"},
+                    {"id": "b", "text": "Transitory"},
+                    {"id": "c", "text": "Beautiful"}
+                ],
+                "correct_answer_id": "b"
             }
         }
 
