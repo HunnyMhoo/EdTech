@@ -1,18 +1,13 @@
-import csv
 import random
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 import asyncio
 
-from backend.models.daily_mission import DailyMissionDocument, MissionStatus, Question, ChoiceOption # Added ChoiceOption
+from backend.models.daily_mission import DailyMissionDocument, MissionStatus, Question
+from backend.repositories.question_repository import question_repository
 
 # Define the target timezone: UTC+7
 TARGET_TIMEZONE = timezone(timedelta(hours=7))
-
-# Define a base path for data files, assuming this script is in backend/services/
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-QUESTIONS_FILE_PATH = DATA_DIR / "gat_questions.csv"
 
 # Custom Exceptions
 class MissionGenerationError(Exception):
@@ -32,113 +27,9 @@ class MissionAlreadyExistsError(MissionGenerationError):
 # For this task, we'll use an in-memory list to simulate the database, storing DailyMissionDocument instances.
 _mock_db_missions: List[DailyMissionDocument] = []
 
-# --- Global Question Cache ---
-_ALL_QUESTIONS: Dict[str, Question] = {}
-
-def _load_questions_from_csv(file_path: Path) -> Dict[str, Question]:
-    """
-    Loads all question details from a CSV file into a dictionary.
-    Assumes CSV has headers: question_id, question_text, skill_area, difficulty_level, feedback_th,
-    and optionally choice_N_id, choice_N_text, correct_answer_id.
-    """
-    questions: Dict[str, Question] = {}
-    if not file_path.exists():
-        raise FileNotFoundError(f"Question file not found: {file_path}")
-    try:
-        with open(file_path, mode='r', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            if not reader.fieldnames:
-                raise MissionGenerationError(f"CSV file {file_path} is empty or has no headers.")
-
-            for row_num, row in enumerate(reader, start=2): # start=2 because 1 is header
-                question_id = row.get('question_id')
-                question_text = row.get('question_text')
-
-                if not question_id:
-                    print(f"Warning: Skipping row {row_num} due to missing question_id: {row}")
-                    continue
-
-                if not question_text:
-                    print(f"Warning: Skipping row {row_num} due to missing question_text for question_id '{question_id}': {row}")
-                    continue
-                
-                # Parse choices
-                parsed_choices: List[ChoiceOption] = []
-                for i in range(1, 5): # Assuming up to 4 choices (choice_1_id, choice_1_text, etc.)
-                    choice_id = row.get(f'choice_{i}_id')
-                    choice_text = row.get(f'choice_{i}_text')
-                    if choice_id and choice_text: # Only add if both id and text are present
-                        parsed_choices.append(ChoiceOption(id=choice_id, text=choice_text))
-                    elif choice_id or choice_text: # If one is present but not the other, it's a data issue
-                        print(f"Warning: Malformed choice data for question_id '{question_id}', choice index {i}. ID: '{choice_id}', Text: '{choice_text}'. Skipping this choice.")
-                
-                correct_answer_id = row.get('correct_answer_id')
-                if correct_answer_id and not any(c.id == correct_answer_id for c in parsed_choices):
-                    print(f"Warning: correct_answer_id '{correct_answer_id}' for question_id '{question_id}' does not match any parsed choice IDs. Setting to None.")
-                    correct_answer_id = None # Or handle as an error, depending on strictness
-
-                try:
-                    question = Question(
-                        question_id=question_id,
-                        question_text=question_text,
-                        skill_area=row.get('skill_area', 'N/A'),
-                        difficulty_level=int(row.get('difficulty_level', 0) or 0), # ensure it's not None or empty string
-                        feedback_th=row.get('feedback_th', ''),
-                        choices=parsed_choices,
-                        correct_answer_id=correct_answer_id
-                    )
-                    questions[question.question_id] = question
-                    if 'feedback_th' in row and not row['feedback_th']:
-                        # This check is fine, but feedback_th has a default in Pydantic model
-                        print(f"Info: Question ID {question_id} has an empty feedback_th value in CSV.")
-                    if not parsed_choices and 'choice_1_id' in reader.fieldnames: # If choice columns exist but none parsed
-                        print(f"Info: Question ID {question_id} has choice columns in CSV but no valid choices were parsed.")
-
-                except ValueError as ve:
-                    print(f"Warning: Skipping row {row_num} for question_id '{question_id}' due to data conversion error: {row} - {ve}")
-                except Exception as e_row: # Catch other Pydantic validation or unexpected errors per row
-                    print(f"Warning: Skipping row {row_num} for question_id '{question_id}' due to error processing: {row} - {e_row}")
-    except Exception as e:
-        raise MissionGenerationError(f"Critical error reading or parsing question file {file_path}: {e}") from e
-    
-    if not questions:
-        raise NoQuestionsAvailableError(f"No valid questions could be loaded from {file_path}. Ensure the file is not empty and data is correctly formatted.")
-        
-    return questions
-
-def _initialize_question_cache():
-    """Initializes the global question cache if it's empty."""
-    global _ALL_QUESTIONS
-    if not _ALL_QUESTIONS:
-        try:
-            _ALL_QUESTIONS = _load_questions_from_csv(QUESTIONS_FILE_PATH)
-            if _ALL_QUESTIONS:
-                print(f"Successfully loaded {len(_ALL_QUESTIONS)} questions into cache.")
-                if len(_ALL_QUESTIONS) > 0:
-                    first_q_key = list(_ALL_QUESTIONS.keys())[0]
-                    print(f"DEBUG: First loaded question ({first_q_key}): {_ALL_QUESTIONS[first_q_key].model_dump_json(indent=2)}")
-            else:
-                # This case should ideally be caught by _load_questions_from_csv raising an error
-                print(f"Warning: Question cache initialized but is empty after loading from {QUESTIONS_FILE_PATH}.")
-        except Exception as e:
-            # Log this critical error. The application might not function correctly without questions.
-            print(f"CRITICAL: Failed to initialize question cache: {e}")
-            # Depending on application requirements, you might re-raise or handle this to prevent startup.
-            # For now, we'll let it proceed, but services relying on questions will fail.
-            _ALL_QUESTIONS = {} # Ensure it's an empty dict if loading fails
-
-# Initialize cache when module is loaded.
-_initialize_question_cache()
-
 def get_question_details_by_id(question_id: str) -> Optional[Question]:
-    """Retrieves a single question by its ID from the global cache."""
-    # Ensure cache is loaded; _initialize_question_cache() is called on module import,
-    # but a check here could be defensive if there are concerns about it being cleared.
-    # However, for simplicity, we rely on the initial load.
-    # if not _ALL_QUESTIONS:
-    #     print("Warning: _ALL_QUESTIONS cache is empty when trying to fetch question by ID. Re-initializing.")
-    #     _initialize_question_cache() # This could have side effects if called repeatedly
-    return _ALL_QUESTIONS.get(question_id)
+    """Retrieves a single question by its ID from the repository."""
+    return question_repository.get_question_by_id(question_id)
 
 def _find_mission_in_db(user_id: str, mission_date_target_tz: datetime) -> Optional[DailyMissionDocument]:
     """
@@ -242,61 +133,50 @@ async def generate_daily_mission(user_id: str, current_datetime_utc: Optional[da
     Generates and persists a new daily mission with 5 questions per user per day.
     Uses DailyMissionDocument and embeds full Question objects.
     """
-    if not _ALL_QUESTIONS: # Check if cache is populated
-        # Attempt to re-initialize if it's empty; might indicate a startup loading issue
-        print("Warning: Question cache was empty during mission generation. Attempting to re-initialize.")
-        _initialize_question_cache()
-        if not _ALL_QUESTIONS:
-            raise NoQuestionsAvailableError(
-                "Question cache is empty and could not be initialized. Cannot generate mission."
-            )
+    all_questions = question_repository.get_all_questions()
+    if not all_questions:
+        raise NoQuestionsAvailableError("The question repository is empty. Cannot generate a mission.")
 
-    if current_datetime_utc:
-        now_utc = current_datetime_utc.replace(tzinfo=timezone.utc)
-    else:
-        now_utc = datetime.now(timezone.utc)
+    if current_datetime_utc is None:
+        current_datetime_utc = datetime.now(timezone.utc)
 
-    now_target_tz = now_utc.astimezone(TARGET_TIMEZONE)
-    today_target_tz_date = now_target_tz.date()
+    # We now check against the target timezone date.
+    mission_date = current_datetime_utc.astimezone(TARGET_TIMEZONE).date()
 
-    existing_mission = _find_mission_in_db(user_id, now_target_tz)
-    if existing_mission:
-        raise MissionAlreadyExistsError(
-            f"Mission for user {user_id} on {today_target_tz_date} already exists."
-        )
+    # Check if a mission for this user and date already exists
+    if _find_mission_in_db(user_id, datetime.combine(mission_date, datetime.min.time(), tzinfo=TARGET_TIMEZONE)):
+        raise MissionAlreadyExistsError(f"A mission for user '{user_id}' on {mission_date} already exists.")
 
-    # Use the pre-loaded questions from the cache
-    all_question_ids = list(_ALL_QUESTIONS.keys())
+    # Ensure we have enough questions to generate a mission
+    if len(all_questions) < 5:
+        raise NoQuestionsAvailableError(f"Insufficient questions available ({len(all_questions)} found) to generate a mission of 5 questions.")
 
-    if not all_question_ids or len(all_question_ids) < 5:
-        raise NoQuestionsAvailableError(
-            "Not enough questions available in the pool to generate a mission."
-        )
-
-    selected_question_ids = random.sample(all_question_ids, 5)
-    selected_questions: List[Question] = [_ALL_QUESTIONS[qid] for qid in selected_question_ids if qid in _ALL_QUESTIONS]
-
-    if len(selected_questions) < 5:
-        # This should ideally not happen if random.sample worked correctly and _ALL_QUESTIONS is consistent
-        raise MissionGenerationError(
-            f"Could not retrieve full question details for all selected IDs. Expected 5, got {len(selected_questions)}."
-        )
+    # Select 5 random question_ids
+    question_ids = random.sample(list(all_questions.keys()), 5)
     
-    # Timestamps should be timezone-aware UTC
-    utc_now = datetime.now(timezone.utc)
+    # Fetch full question objects from the repository using the selected IDs
+    mission_questions = [question_repository.get_question_by_id(qid) for qid in question_ids]
+    # Filter out any potential None results if an ID somehow becomes invalid between sampling and fetching
+    mission_questions = [q for q in mission_questions if q is not None]
+    
+    if len(mission_questions) < 5:
+        # This is an edge case that should rarely happen if the repository is consistent
+        raise MissionGenerationError(f"Could not retrieve full question details for all selected IDs. Required 5, got {len(mission_questions)}.")
 
-    new_mission_doc = DailyMissionDocument(
+    # Create the mission document
+    new_mission = DailyMissionDocument(
         user_id=user_id,
-        date=today_target_tz_date,
-        questions=selected_questions, # Embed full question objects
+        date=mission_date,
+        questions=mission_questions,
         status=MissionStatus.NOT_STARTED,
-        created_at=utc_now,
-        updated_at=utc_now
+        created_at=current_datetime_utc.astimezone(TARGET_TIMEZONE),
+        updated_at=current_datetime_utc.astimezone(TARGET_TIMEZONE)
     )
 
-    saved_mission = _save_mission_to_db(new_mission_doc)
-    # print(f"Service: Generated and saved new mission for user {user_id} for date {today_target_tz_date}")
-    return saved_mission
+    # Persist the new mission
+    _save_mission_to_db(new_mission)
+    print(f"Successfully generated and saved new mission for user '{user_id}' for date {mission_date}.")
+    return new_mission
 
 async def archive_past_incomplete_missions() -> int:
     """
@@ -342,88 +222,43 @@ async def archive_past_incomplete_missions() -> int:
 # For now, the provided functions (get_todays_mission_for_user, update_mission_progress, generate_daily_mission)
 # are the main ones interacting with the mission data.
 
-
 if __name__ == '__main__':
-    # Example Usage & Manual Verification Simulation
-    
-    # Ensure the cache is loaded for testing (it should be by module import, but good for clarity)
-    if not _ALL_QUESTIONS:
-        print("Main: Question cache empty, attempting to load for test...")
-        _initialize_question_cache() # Should load questions
-
-    if not _ALL_QUESTIONS:
-        print("Main: CRITICAL - Failed to load questions for the test script. Exiting.")
-        exit()
+    # This is a basic test runner for the service.
+    # In a real application, you would have a more robust test suite.
+    async def main():
+        print("--- Running basic service tests ---")
         
-    print(f"Available questions in cache: {len(_ALL_QUESTIONS)}")
+        # Ensure the repository can load questions
+        all_questions = question_repository.get_all_questions()
+        if not all_questions:
+            print("CRITICAL: Question repository failed to load any questions.")
+            return
+        print(f"Successfully loaded {len(all_questions)} questions from repository.")
 
-    test_user_id = "test_user_main_001"
-    print(f"--- Attempting to generate mission for user: {test_user_id} ---")
-    try:
-        mission = asyncio.run(generate_daily_mission(test_user_id))
-        print("Mission generated successfully:")
-        print(mission.model_dump_json(indent=2))
-    except MissionGenerationError as e:
-        print(f"Error generating mission: {e}")
+        # Test mission generation
+        test_user = "test_user_001"
+        try:
+            print(f"\nAttempting to generate a mission for {test_user}...")
+            mission = await generate_daily_mission(test_user)
+            print("Mission generated successfully.")
+            
+            # Test fetching the mission
+            print(f"\nAttempting to fetch the mission for {test_user}...")
+            fetched_mission = await get_todays_mission_for_user(test_user)
+            assert fetched_mission is not None
+            assert fetched_mission.user_id == test_user
+            print("Mission fetched successfully.")
 
-    print(f"\n--- Attempting to generate mission again for user: {test_user_id} (should fail) ---")
-    try:
-        mission = asyncio.run(generate_daily_mission(test_user_id))
-        print("Mission generated successfully (this should not happen):")
-        print(mission.model_dump_json(indent=2))
-    except MissionAlreadyExistsError as e:
-        print(f"Correctly caught error for existing mission: {e}")
-    except MissionGenerationError as e:
-        print(f"Error generating mission: {e}")
+            # Test that generating again fails
+            print(f"\nAttempting to generate mission again (should fail)...")
+            try:
+                await generate_daily_mission(test_user)
+            except MissionAlreadyExistsError:
+                print("Correctly caught MissionAlreadyExistsError.")
 
-    # Simulate time passing to the next day for UTC+7
-    # Current UTC time is X. If X is 18:00 UTC, it's 01:00 UTC+7 (next day).
-    # If X is 16:00 UTC, it's 23:00 UTC+7 (same day).
-    # We need to advance time enough so that `now_utc.astimezone(TARGET_TIMEZONE).date()` is different.
-    # Let's use a fixed past time for the first mission to make it testable.
-    
-    _mock_db_missions = [] # Clear DB for next test
-    fixed_time_yesterday_utc = datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc) # 17:00 UTC+7 on Jan 1st
-    
-    print(f"\n--- Generating mission for {test_user_id} at a fixed past time: {fixed_time_yesterday_utc.isoformat()} ---")
-    try:
-        mission_past = asyncio.run(generate_daily_mission(test_user_id, current_datetime_utc=fixed_time_yesterday_utc))
-        print("Past mission generated successfully:")
-        print(mission_past.model_dump_json(indent=2))
-    except MissionGenerationError as e:
-        print(f"Error generating past mission: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred during testing: {e}")
 
-    # Now try to generate for "today" relative to current execution, which should be different from Jan 1st, 2023
-    print(f"\n--- Generating mission for {test_user_id} for current time (should be a new day) ---")
-    try:
-        mission_today = asyncio.run(generate_daily_mission(test_user_id)) # Uses current time
-        print("Mission for current day generated successfully:")
-        print(mission_today.model_dump_json(indent=2))
-        assert mission_today.date != mission_past.date
-    except MissionGenerationError as e:
-        print(f"Error generating mission for current day: {e}")
+        print("\n--- Basic service tests finished ---")
 
-    print(f"\n--- Verifying mock DB content ---")
-    for m in _mock_db_missions:
-        print(f" - User: {m.user_id}, Date: {m.date.isoformat()}, Questions: {len(m.questions)}, Status: {m.status.value}")
-
-    # Test with insufficient questions
-    _mock_db_missions.clear() # Clear DB
-    temp_questions_file = DATA_DIR / "temp_few_questions.csv"
-    with open(temp_questions_file, mode='w', encoding='utf-8') as f:
-        f.write("question_id\nQ1\nQ2\nQ3") # Only 3 questions
-    
-    print(f"\n--- Attempting to generate mission with insufficient questions ({temp_questions_file.name}) ---")
-    original_questions_file_path = QUESTIONS_FILE_PATH
-    try:
-        QUESTIONS_FILE_PATH = temp_questions_file # Temporarily override
-        generate_daily_mission("student_few_q")
-    except NoQuestionsAvailableError as e:
-        print(f"Correctly caught error for insufficient questions: {e}")
-    finally:
-        QUESTIONS_FILE_PATH = original_questions_file_path # Restore
-        if temp_questions_file.exists():
-            temp_questions_file.unlink()
-
-    print("\nDemo finished.")
-    asyncio.run(main_test_logic()) 
+    asyncio.run(main()) 

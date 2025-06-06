@@ -9,6 +9,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
+  // Detox compatibility for React Native 0.69+
+  @objc var rootViewFactory: RCTRootViewFactory?
 
   func application(
     _ application: UIApplication,

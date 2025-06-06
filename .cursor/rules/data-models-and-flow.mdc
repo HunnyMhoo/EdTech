@@ -1,50 +1,41 @@
 ---
-description: Specification for handling daily mission data models, API responses, and timezone-aware data flow between frontend and backend
-globs: backend/models/**,backend/services/**,backend/routes/**,backend/jobs/**
+description: Used for analyzing data models, API structures, and data flow between frontend/backend for mission-based educational systems
+globs: frontend/services/*.ts,backend/models/*.py,backend/services/*.py,backend/routes/*.py
 alwaysApply: false
 ---
 
 
 # data-models-and-flow
 
-### Daily Mission Data Model (Importance: 95)
-Located in `backend/models/daily_mission.py`
-- DailyMissionDocument schema encompasses:
-  - User identification
-  - Mission date (UTC+7 timezone)
-  - Set of 5 randomly selected question IDs
-  - Mission status tracking (NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED)
-  - Current question index
-  - User answers and timestamps
+## Mission Data Model (Importance: 95)
+`backend/models/daily_mission.py`
+- Daily mission structure contains exactly 5 questions per user
+- Mission states: NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED
+- Question model includes: question_id, text, skill_area, difficulty_level, choices
+- Thai-language feedback support integrated into question model
 
-### Mission Generation Flow (Importance: 90)
-Located in `backend/services/mission_service.py`
-- Validates question pool availability
-- Generates unique 5-question sets per user
-- Prevents duplicate mission creation for same date
-- Handles timezone-specific date determination (UTC+7)
-- Enforces mission status transitions
+## API Response Structures (Importance: 85)
+`backend/models/api_responses.py`
+- Mission progress tracking response includes current_question_index and answer history
+- Question response format standardizes choice options and feedback delivery
+- Mission state transitions handled through structured status updates
+- Timezone-aware timestamps using UTC+7 standard
 
-### Data Archival Flow (Importance: 85)
-Located in `backend/jobs/daily_reset.py`
-- Scheduled execution at 4:00 AM UTC
-- Archives incomplete missions from previous days
-- Maintains data integrity through status validation
-- Ensures clean transition between daily cycles
+## Data Flow Architecture (Importance: 90)
+`frontend/services/missionApi.ts`, `backend/routes/missions.py`
+- Frontend maintains mission state with progress caching
+- Backend manages mission lifecycle including:
+  - Daily mission generation with timezone rules
+  - Progress state synchronization
+  - Answer validation and feedback delivery
+- Bi-directional sync ensures consistent mission states
 
-### API Response Structures (Importance: 80)
-Located in `backend/models/api_responses.py` and `backend/routes/missions.py`
-- MissionResponse model for daily mission data
-- ErrorResponse model for validation/business rule violations
-- Structured responses for mission progress updates
-- Timezone-aware response formatting
-
-### Mission Progress Flow (Importance: 75)
-Located in `backend/services/mission_service.py`
-- Tracks user progression through questions
-- Updates mission status based on completion
-- Validates answer submissions
-- Maintains mission completion timestamps
+## Mission Progress Management (Importance: 80)
+`backend/services/mission_service.py`
+- User-specific mission tracking with daily reset boundaries
+- Answer persistence with validation rules
+- Automatic archival of incomplete missions at day boundary
+- Mission date calculations use UTC+7 timezone for Thai operations
 
 $END$
 

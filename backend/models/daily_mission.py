@@ -18,7 +18,7 @@ class ChoiceOption(BaseModel):
     text: str = Field(..., description="The text content of the choice.")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "a",
                 "text": "Option A"
@@ -39,7 +39,7 @@ class Question(BaseModel):
     correct_answer_id: Optional[str] = Field(default=None, description="The ID of the correct choice from the 'choices' list.")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "question_id": "GATQ001",
                 "question_text": "What is the synonym for \'ephemeral\'?",
@@ -76,8 +76,8 @@ class DailyMissionDocument(BaseModel):
     questions: List[Question] = Field(
         ...,
         description="A list of question objects that make up the mission.",
-        min_items=5,
-        max_items=5
+        min_length=5,
+        max_length=5
     )
     status: MissionStatus = Field(
         default=MissionStatus.NOT_STARTED,
@@ -110,7 +110,7 @@ class DailyMissionDocument(BaseModel):
         # arbitrary_types_allowed = True
 
         # Example of schema extras for OpenAPI generation if using FastAPI
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "user_id": "user_123_abc",
                 "date": "2023-10-27",
@@ -126,6 +126,24 @@ class DailyMissionDocument(BaseModel):
                         "question_text": "Identify the logical fallacy...",
                         "skill_area": "Logical Reasoning",
                         "difficulty_level": 2
+                    },
+                    {
+                        "question_id": "GATQ003",
+                        "question_text": "What is the capital of Thailand?",
+                        "skill_area": "Geography",
+                        "difficulty_level": 1
+                    },
+                    {
+                        "question_id": "GATQ004",
+                        "question_text": "Solve for x: 2x + 3 = 7",
+                        "skill_area": "Mathematics",
+                        "difficulty_level": 2
+                    },
+                    {
+                        "question_id": "GATQ005",
+                        "question_text": "Who wrote 'Hamlet'?",
+                        "skill_area": "Literature",
+                        "difficulty_level": 3
                     }
                 ],
                 "status": "not_started",

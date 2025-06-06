@@ -1,11 +1,11 @@
-question_id,question_text,skill_area,difficulty_level
-GATQ001,"What is the synonym for 'ephemeral'?",Vocabulary,1
-GATQ002,"Identify the logical fallacy in the statement: 'Everyone is doing it, so it must be right.'",Logical Reasoning,2
-GATQ003,"Complete the analogy: Doctor is to Hospital as Teacher is to ____.",Analogies,1
-GATQ004,"What is the main idea of the passage provided (assume a short passage here)?",Reading Comprehension,2
-GATQ005,"If A > B and B > C, then which is true: A > C, A < C, A = C?",Logical Reasoning,1
-GATQ006,"Choose the word that does not belong: Apple, Banana, Carrot, Orange.",Classification,1
-GATQ007,"What is the antonym for 'benevolent'?",Vocabulary,2
-GATQ008,"If all Fleeps are Floops, and some Floops are Fleems, are all Fleeps Fleems?",Logical Reasoning,3
-GATQ009,"Unscramble the letters to form a meaningful word: 'RECAC'.",Word Formation,1
-GATQ010,"What number comes next in the series: 2, 4, 8, 16, ___?",Number Series,1 
+question_id,question_text,skill_area,difficulty_level,feedback_th
+GATQ001,"What is the synonym for 'ephemeral'?",Vocabulary,1,"'Ephemeral' หมายถึง 'อยู่เพียงชั่วครู่' คำที่มีความหมายเหมือนกันคือ 'transitory' หรือ 'short-lived'"
+GATQ002,"Identify the logical fallacy in the statement: 'Everyone is doing it, so it must be right.'",Logical Reasoning,2,"นี่คือการอ้างเหตุผลแบบ 'bandwagon fallacy' หรือ 'appeal to popularity' ซึ่งการที่คนส่วนใหญ่ทำ ไม่ได้หมายความว่าสิ่งนั้นถูกต้องเสมอไป"
+GATQ003,"Complete the analogy: Doctor is to Hospital as Teacher is to ____.",Analogies,1,"หมอทำงานที่โรงพยาบาล ครูทำงานที่ 'โรงเรียน' (School)"
+GATQ004,"What is the main idea of the passage provided (assume a short passage here)?",Reading Comprehension,2,"ใจความสำคัญคือประเด็นหลักหรือสาระสำคัญที่สุดของบทความ ควรมองหาประโยคที่สรุปเนื้อหาโดยรวม"
+GATQ005,"If A > B and B > C, then which is true: A > C, A < C, A = C?",Logical Reasoning,1,"นี่คือคุณสมบัติการถ่ายทอด (transitive property) ในคณิตศาสตร์ ถ้า A มากกว่า B และ B มากกว่า C ดังนั้น A จะต้องมากกว่า C"
+GATQ006,"Choose the word that does not belong: Apple, Banana, Carrot, Orange.",Classification,1,"'Carrot' (แครอท) เป็นผัก ส่วน Apple, Banana, Orange เป็นผลไม้"
+GATQ007,"What is the antonym for 'benevolent'?",Vocabulary,2,"'Benevolent' หมายถึง 'ใจดี, มีเมตตา' คำตรงข้ามคือ 'malevolent' หรือ 'unkind'"
+GATQ008,"If all Fleeps are Floops, and some Floops are Fleems, are all Fleeps Fleems?",Logical Reasoning,3,"ไม่จำเป็นเสมอไป การที่ Fleeps ทั้งหมดเป็น Floops และ Floops บางตัวเป็น Fleems ไม่ได้หมายความว่า Fleeps ทั้งหมดจะต้องเป็น Fleems นี่เป็นปัญหาเรื่องตรรกศาสตร์เซต"
+GATQ009,"Unscramble the letters to form a meaningful word: 'RECAC'.",Word Formation,1,"คำที่ถูกต้องคือ 'CARE' (ดูแล) หรือ 'RACE' (การแข่งขัน, เชื้อชาติ)"
+GATQ010,"What number comes next in the series: 2, 4, 8, 16, ___?",Number Series,1,"เป็นอนุกรมเลขเรขาคณิตที่คูณด้วย 2 ในแต่ละครั้ง ดังนั้นตัวเลขถัดไปคือ 16 * 2 = 32" 

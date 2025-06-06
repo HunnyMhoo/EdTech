@@ -1,59 +1,91 @@
 ---
-description: API contract documentation and integration patterns between frontend and backend services
-globs: backend/routes/*.py,backend/models/api_*.py,backend/services/*_service.py
+description: API integration and contract documentation for cross-service communication between frontend and backend systems
+globs: frontend/services/*.ts,backend/routes/*.py,backend/models/api_responses.py
 alwaysApply: false
 ---
 
 
 # api-integration
 
-## API Contract Documentation
+## API Contract
 
 ### Mission Management Endpoints
 
-#### Get Today's Mission
-**Path:** `backend/routes/missions.py`
-**Importance Score:** 85
-- Retrieves user-specific daily mission based on UTC+7 timezone
-- Returns mission data including question IDs, current progress, and status
-- Uses `MissionResponse` model for structured response format
+`/api/missions`
+- Purpose: Daily mission lifecycle management
+- Response Format: Structured mission objects with status, questions, and progress
+- Key Parameters: user_id, mission_date (UTC+7)
 
-#### Update Mission Progress  
-**Path:** `backend/routes/missions.py`
-**Importance Score:** 80
-- Accepts user answers and progress updates
-- Validates mission state transitions
-- Returns updated mission status and next question index
+### Status States
+- NOT_STARTED: Initial mission state
+- IN_PROGRESS: Active mission with partial completion
+- COMPLETE: All questions answered
+- ARCHIVED: Past incomplete missions
 
-### Response Models
-**Path:** `backend/models/api_responses.py`
-**Importance Score:** 75
+### Progress Tracking
+Integration between frontend mission service and backend tracking:
+- Question index syncing
+- Answer history persistence
+- State transition validation
 
-#### MissionResponse
-- Mission status (NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED)
-- Current question index
-- Question IDs array
-- User answers collection
-- Timestamps for mission events
+### Error Handling
+Standardized error response format:
+```
+{
+  error_code: string
+  message: string
+  details?: object
+}
+```
 
-#### ErrorResponse
-- Error code mapping for mission-specific failures
-- Structured error messages for:
-  - MissionAlreadyExistsError
-  - NoQuestionsAvailableError
-  - Invalid mission state transitions
+Key error scenarios:
+- Mission already exists for date
+- Invalid mission state transition
+- Question index out of bounds
 
-### Integration Points
+## Integration Points
 
-#### Mission Service Interface
-**Path:** `backend/services/mission_service.py`
-**Importance Score:** 90
-- Handles mission generation requests from API layer
-- Manages mission state transitions and validation
-- Integrates with daily reset job for mission archival
-- Enforces timezone-specific mission availability
+### Frontend Services
+Location: `frontend/services/missionApi.ts`
+- Mission state management
+- Progress synchronization
+- Answer submission handling
 
-The API contract emphasizes mission management operations uniquely designed for the Thai educational context, with specific handling of UTC+7 timezone requirements and daily mission workflows.
+### Backend Routes
+Location: `backend/routes/missions.py`
+- Mission lifecycle endpoints
+- Progress tracking APIs
+- State transition validation
+
+## Data Models
+
+### Mission Response Format
+```
+{
+  mission_id: string
+  status: MissionStatus
+  current_question: number
+  questions: Question[]
+  answers: Answer[]
+}
+```
+
+### Question Format
+```
+{
+  question_id: string
+  text: string
+  choices: Choice[]
+  feedback_th?: string
+}
+```
+
+Importance Scores:
+- Mission Management API Contract: 95
+- Status State Management: 85
+- Progress Tracking Integration: 80
+- Error Handling Patterns: 75
+- Data Model Definitions: 70
 
 $END$
 

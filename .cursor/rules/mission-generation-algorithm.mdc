@@ -1,50 +1,46 @@
 ---
-description: Specifies mission generation logic for daily educational challenges and question selection
-globs: backend/services/mission_service.py,backend/jobs/daily_reset.py,backend/models/daily_mission.py
+description: Defines core mission generation rules, question selection, and daily reset logic for educational content delivery
+globs: backend/services/mission_service.py,backend/jobs/daily_reset.py,backend/routes/missions.py,frontend/services/missionApi.ts
 alwaysApply: false
 ---
 
 
 # mission-generation-algorithm
 
-### Core Mission Generation Logic (Importance: 95)
-- Generates 5 randomly selected questions per user daily
-- Uses UTC+7 timezone alignment for Thailand-specific mission timing
-- Enforces uniqueness constraints to prevent duplicate missions per user per day
-- Validates question pool availability before mission creation
+Core algorithm components for daily educational mission generation and management.
 
-### Mission Status Management (Importance: 85)
-- Tracks mission states:
-  - NOT_STARTED: Initial state for newly generated missions
-  - IN_PROGRESS: Active missions being attempted
-  - COMPLETE: Successfully finished missions
-  - ARCHIVED: Past incomplete missions
-- Handles transitions between states based on user progress
+Mission Generation Rules (Importance: 95)
+- Generates exactly 5 randomly selected questions per daily mission
+- Ensures question uniqueness within each mission
+- Operates on UTC+7 timezone for Thai educational system alignment 
+- Enforces single active mission per user per day
+- Requires minimum question pool size of 5 for mission creation
 
-### Daily Reset Workflow (Importance: 80)
-- Executes at 4:00 AM UTC daily
-- Archives incomplete missions from previous days
-- Maintains data integrity by only archiving eligible missions
-- Prepares system for new daily mission generation
+Question Selection Logic (Importance: 90)
+- Randomly selects questions specific to GAT เชื่อมโยง content
+- Questions must include skill area and difficulty level attributes
+- Supports Thai-language feedback for each question
+- Maintains question cache for performance optimization
+- Prevents duplicate questions within same mission
 
-### Question Selection Rules (Importance: 90)
-- Randomly selects from available question pool
-- Prevents mission creation if insufficient questions exist
-- Raises NoQuestionsAvailableError when pool is depleted
-- Validates against MissionAlreadyExistsError for same day/user
+Mission Status Workflow (Importance: 85)
+- Tracks four distinct states: NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED
+- Automatically archives incomplete missions at daily reset (4:00 AM UTC)
+- Implements grace period of 1 hour for missed reset executions
+- Maintains user progression through question_index tracking
 
-### Progress Tracking (Importance: 75)
-- Stores current question index
-- Maintains answer history
-- Updates mission status based on completion
-- Records timestamps for mission events
+Progress Management (Importance: 80)
+- Enforces sequential question progression
+- Prevents modification of previously submitted answers
+- Validates mission completion based on answer requirements
+- Maintains separate answer state from question progression
+- Implements automatic progress saving during navigation
 
-File Paths:
-```
-backend/services/mission_service.py
-backend/jobs/daily_reset.py
-backend/models/daily_mission.py
-```
+Key Files:
+- backend/services/mission_service.py: Core mission generation logic
+- backend/jobs/daily_reset.py: Mission lifecycle management
+- frontend/services/missionApi.ts: Mission state management
+- backend/routes/missions.py: Mission progress tracking
 
 $END$
 

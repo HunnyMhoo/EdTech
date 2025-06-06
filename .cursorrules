@@ -10,53 +10,52 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-### Core Mission Management System
-Importance Score: 95
+The system implements a daily educational mission platform specifically designed for Thai GAT เชื่อมโยง practice, operating with strict timezone-specific rules (UTC+7).
 
-The system implements a specialized educational mission delivery platform focused on GAT เชื่อมโยง practice for Thai students. Core functionality revolves around:
+Core Business Components:
 
-1. Daily Mission Generation (`backend/services/mission_service.py`)
-- Generates 5 unique questions per user daily
+1. Daily Mission System (Importance: 95)
+- Generates exactly 5 random questions per daily mission
+- Enforces single active mission per user per day
 - Maintains mission states: NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED
-- Validates question pool availability and prevents duplicate missions
-- Enforces UTC+7 timezone alignment for Thai users
+- Automatically archives incomplete missions at daily reset
 
-2. Mission Data Management (`backend/models/daily_mission.py`)
-- Tracks user progress, answers, and completion status
-- Maintains question sequences and response history
-- Associates missions with specific dates and user IDs
+Key files:
+```
+backend/services/mission_service.py
+frontend/screens/MissionScreen.tsx
+```
 
-3. Automated Maintenance (`backend/jobs/daily_reset.py`)
-- Archives incomplete missions at 4:00 AM UTC
-- Maintains data cleanliness for active missions
-- Prepares system for new daily content
+2. Question Progression Engine (Importance: 85)
+- Enforces sequential question completion
+- Validates answers before allowing progression
+- Prevents modification of submitted answers
+- Tracks current_question_index for progress management
 
-### Mission Progress Workflow
-Importance Score: 85
+Key files:
+```
+frontend/services/missionApi.ts
+backend/routes/missions.py
+```
 
-The progress tracking system (`backend/routes/missions.py`) manages:
-- User-specific mission retrieval
-- Progress state transitions
-- Answer submission and validation
-- Mission completion verification
+3. Mission Lifecycle Management (Importance: 80)
+- Daily reset process at 4:00 AM UTC
+- Archives incomplete missions from previous day
+- Maintains mission availability periods
+- Handles mission state transitions
 
-### Mission Status Management
-Importance Score: 80
+Key files:
+```
+backend/jobs/daily_reset.py
+```
 
-The status system enforces:
-- Single active mission per user per day
-- Proper transition between mission states
-- Archival of expired missions
-- Progress persistence across sessions
+4. Educational Content Management (Importance: 75)
+- Thai-language feedback support
+- Question categorization by skill areas
+- Difficulty level assignment
+- Multiple-choice format with answer validation
 
-### Error Handling
-Importance Score: 75
-
-Domain-specific error management includes:
-- NoQuestionsAvailableError for depleted question pools
-- MissionAlreadyExistsError for duplicate mission prevention
-- Timezone-specific validation errors
-- Mission state transition validation
+The system architecture emphasizes strict progression rules and daily engagement patterns, specifically tailored for Thai educational requirements and timezone considerations.
 
 $END$
 

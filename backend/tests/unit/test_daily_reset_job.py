@@ -13,7 +13,6 @@ def capture_logs(caplog):
     daily_reset.logger.setLevel(logging.INFO) # Ensure job logger is at INFO for capture
     yield caplog
 
-@pytest.mark.asyncio
 @patch('backend.jobs.daily_reset.archive_past_incomplete_missions', new_callable=AsyncMock)
 async def test_run_daily_reset_job_success(mock_archive_missions, capture_logs):
     """Test successful execution of the daily reset job."""
@@ -26,7 +25,6 @@ async def test_run_daily_reset_job_success(mock_archive_missions, capture_logs):
     assert "Daily reset job completed. Archived 5 missions." in capture_logs.text
     assert "error" not in capture_logs.text.lower()
 
-@pytest.mark.asyncio
 @patch('backend.jobs.daily_reset.archive_past_incomplete_missions', new_callable=AsyncMock)
 async def test_run_daily_reset_job_no_missions_archived(mock_archive_missions, capture_logs):
     """Test job execution when no missions are archived."""
@@ -37,7 +35,6 @@ async def test_run_daily_reset_job_no_missions_archived(mock_archive_missions, c
     mock_archive_missions.assert_called_once()
     assert "Daily reset job completed. Archived 0 missions." in capture_logs.text
 
-@pytest.mark.asyncio
 @patch('backend.jobs.daily_reset.archive_past_incomplete_missions', new_callable=AsyncMock)
 async def test_run_daily_reset_job_service_raises_mission_generation_error(mock_archive_missions, capture_logs):
     """Test job handling when the service layer raises a MissionGenerationError."""
@@ -50,7 +47,6 @@ async def test_run_daily_reset_job_service_raises_mission_generation_error(mock_
     assert f"Error during daily reset job (MissionGenerationError): {error_message}" in capture_logs.text
     assert "Daily reset job completed." not in capture_logs.text
 
-@pytest.mark.asyncio
 @patch('backend.jobs.daily_reset.archive_past_incomplete_missions', new_callable=AsyncMock)
 async def test_run_daily_reset_job_service_raises_unexpected_error(mock_archive_missions, capture_logs):
     """Test job handling when the service layer raises an unexpected error."""
@@ -64,7 +60,6 @@ async def test_run_daily_reset_job_service_raises_unexpected_error(mock_archive_
     assert "Daily reset job completed." not in capture_logs.text
 
 # Example of how to run the job manually if needed for other test types (not a unit test for the job itself)
-@pytest.mark.asyncio
 @patch('backend.jobs.daily_reset.archive_past_incomplete_missions', new_callable=AsyncMock)
 async def test_manual_run_invokes_job(mock_archive_missions):
     # This tests the if __name__ == '__main__' block, which is tricky to unit test directly.

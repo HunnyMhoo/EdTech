@@ -5,6 +5,7 @@ const API_BASE_URL = 'http://localhost:8000'; // Assuming backend runs on port 8
 export interface Answer {
   question_id: string;
   answer: any; // Can be string, number, object, depending on question type
+  feedback_shown?: boolean;
 }
 
 // Define the Question type based on the backend model
@@ -13,6 +14,9 @@ export interface Question {
   question_text: string;
   skill_area: string;
   difficulty_level: number;
+  choices?: Array<{ id: string; text: string }>; // Add choices for multiple-choice questions
+  feedback_th: string;
+  correct_answer_id: string;
   // Add any other fields that your backend's Question model might have
 }
 
@@ -81,7 +85,7 @@ export const fetchDailyMission = async (userId: string = 'test_user_123'): Promi
 export interface MissionProgressUpdatePayload {
   current_question_index: number;
   answers: Answer[];
-  status?: 'not_started' | 'in_progress' | 'complete';
+  status?: 'not_started' | 'in_progress' | 'complete' | 'archived';
 }
 
 export const updateMissionProgressApi = async (
@@ -135,11 +139,17 @@ const getMockMission = async (): Promise<Mission> => {
     return {
       user_id: 'mock_user_123',
       date: new Date().toISOString().split('T')[0],
-      questions: ['q1_mock', 'q2_mock', 'q3_mock', 'q4_mock', 'q5_mock'].map(id => ({
+      questions: ['q1_mock', 'q2_mock', 'q3_mock', 'q4_mock', 'q5_mock'].map((id, index) => ({
         question_id: id,
-        question_text: id,
+        question_text: `This is mock question ${index + 1}?`,
         skill_area: 'Mock',
         difficulty_level: 1,
+        choices: [
+            { id: `${id}_choice1`, text: 'Choice A' },
+            { id: `${id}_choice2`, text: 'Choice B' },
+        ],
+        feedback_th: `นี่คือคำอธิบายจำลองสำหรับ ${id}`,
+        correct_answer_id: `${id}_choice1`,
       })),
       status: 'not_started',
       current_question_index: 0,

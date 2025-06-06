@@ -3,8 +3,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 
 # Import routers from your application
-from backend.routes import missions # Assuming missions.py is in backend/routes
-from backend.jobs.daily_reset import run_daily_reset_job # Import the job
+from routes import missions # Assuming missions.py is in backend/routes
+from jobs.daily_reset import run_daily_reset_job # Import the job
 # If you have other routers, import them here as well
 # from backend.routes import another_router 
 
