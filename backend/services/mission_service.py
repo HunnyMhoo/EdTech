@@ -2,12 +2,17 @@ import random
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 import asyncio
+from fastapi import Depends
 
 from backend.models.daily_mission import DailyMissionDocument, MissionStatus, Question
-from backend.repositories.question_repository import question_repository
+from backend.repositories.question_repository import QuestionRepository
+from backend.repositories.mission_repository import MissionRepository
 
 # Define the target timezone: UTC+7
 TARGET_TIMEZONE = timezone(timedelta(hours=7))
+
+# Instantiate repositories. In the next phase, this will be handled by Dependency Injection.
+# mission_repo = MissionRepository() # This will be removed and injected.
 
 # Custom Exceptions
 class MissionGenerationError(Exception):
@@ -23,74 +28,43 @@ class MissionAlreadyExistsError(MissionGenerationError):
     pass
 
 # --- Mock Database Interaction -- -
-# In a real application, this would interact with MongoDB via a repository/ODM
-# For this task, we'll use an in-memory list to simulate the database, storing DailyMissionDocument instances.
-_mock_db_missions: List[DailyMissionDocument] = []
+# This section has been replaced by the MissionRepository.
+# The in-memory list `_mock_db_missions` and functions `_find_mission_in_db`,
+# `_save_mission_to_db`, and `_fetch_mission_from_db` have been removed.
 
-def get_question_details_by_id(question_id: str) -> Optional[Question]:
+async def get_question_details_by_id(
+    question_id: str,
+    question_repo: QuestionRepository
+) -> Optional[Question]:
     """Retrieves a single question by its ID from the repository."""
-    return question_repository.get_question_by_id(question_id)
-
-def _find_mission_in_db(user_id: str, mission_date_target_tz: datetime) -> Optional[DailyMissionDocument]:
-    """
-    Simulates finding a mission in the database for a given user and date (comparing date parts in TARGET_TIMEZONE).
-    """
-    target_date_val = mission_date_target_tz.date()
-    for mission_doc in _mock_db_missions:
-        # Ensure stored 'date' is timezone-aware or consistently handled if it was stored as naive
-        # Our DailyMissionDocument.date is datetime.date, so direct comparison is fine
-        if mission_doc.user_id == user_id and mission_doc.date == target_date_val:
-            return mission_doc
-    return None
-
-def _save_mission_to_db(mission_doc: DailyMissionDocument) -> DailyMissionDocument:
-    """
-    Simulates saving a mission to the database.
-    If a mission with the same userId and date already exists, it updates it.
-    Otherwise, it adds the new mission.
-    """
-    existing_mission_index = -1
-    for i, m in enumerate(_mock_db_missions):
-        if m.user_id == mission_doc.user_id and m.date == mission_doc.date:
-            existing_mission_index = i
-            break
-    
-    if existing_mission_index != -1:
-        _mock_db_missions[existing_mission_index] = mission_doc
-    else:
-        _mock_db_missions.append(mission_doc)
-    return mission_doc
-
-async def _fetch_mission_from_db(user_id: str, target_date_utc0: datetime) -> Optional[DailyMissionDocument]:
-    """
-    Fetches a mission for a given user and date (represented as UTC midnight) from the mock DB.
-    The date in the DB is effectively treated as representing the start of day in UTC+7.
-    """
-    target_date_in_target_tz = target_date_utc0.astimezone(TARGET_TIMEZONE)
-    
-    # print(f"DB Query (mock): Find mission for user_id={user_id} on date (TARGET_TIMEZONE)={target_date_in_target_tz.date()}")
-    
-    mission_doc = _find_mission_in_db(user_id=user_id, mission_date_target_tz=target_date_in_target_tz)
-    
-    return mission_doc
+    return await question_repo.get_question_by_id(question_id)
 
 def get_utc7_today_date() -> datetime.date:
     """Calculates today's date in UTC+7."""
     return datetime.now(TARGET_TIMEZONE).date()
 
-async def get_todays_mission_for_user(user_id: str) -> Optional[DailyMissionDocument]:
+async def get_todays_mission_for_user(
+    user_id: str,
+    mission_repo: MissionRepository,
+    question_repo: QuestionRepository
+) -> Optional[DailyMissionDocument]:
     """
     Retrieves today's (UTC+7) mission for a given user, including progress.
+    If no mission exists, it attempts to generate one.
     """
     today_target_tz_date = get_utc7_today_date()
     
     # print(f"Service: Attempting to fetch mission for user {user_id} for date (UTC+7 today): {today_target_tz_date}")
-    mission_doc = _find_mission_in_db(user_id, datetime.combine(today_target_tz_date, datetime.min.time(), tzinfo=TARGET_TIMEZONE))
+    mission_doc = await mission_repo.find_mission(user_id, today_target_tz_date)
             
     if not mission_doc:
         # print(f"Service: No mission found for user {user_id} for date {today_target_tz_date}. Attempting to generate one.")
         try:
-            mission_doc = await generate_daily_mission(user_id)
+            mission_doc = await generate_daily_mission(
+                user_id=user_id,
+                mission_repo=mission_repo,
+                question_repo=question_repo
+            )
             # print(f"Service: Successfully generated mission for user {user_id} on demand.")
         except MissionGenerationError as e:
             # print(f"Service: Error generating mission on demand for user {user_id}: {e}")
@@ -106,13 +80,14 @@ async def update_mission_progress(
     user_id: str,
     current_question_index: int,
     answers: List[Dict[str, Any]],
+    mission_repo: MissionRepository,
     status: Optional[MissionStatus] = None
 ) -> Optional[DailyMissionDocument]:
     """
     Updates the progress of today's mission for a given user.
     """
     today_target_tz_date = get_utc7_today_date()
-    mission_doc = await get_todays_mission_for_user(user_id)
+    mission_doc = await mission_repo.find_mission(user_id, today_target_tz_date)
 
     if not mission_doc:
         # Or raise an error: print(f"Service: No mission found to update progress for user {user_id} for date {today_target_tz_date}")
@@ -124,16 +99,21 @@ async def update_mission_progress(
         mission_doc.status = status
     mission_doc.updated_at = datetime.now(timezone.utc)
 
-    _save_mission_to_db(mission_doc) # Save changes back to the mock DB
+    await mission_repo.save_mission(mission_doc)
     # print(f"Service: Updated progress for user {user_id}. Index: {current_question_index}, Answers: {len(answers)}")
     return mission_doc
 
-async def generate_daily_mission(user_id: str, current_datetime_utc: Optional[datetime] = None) -> DailyMissionDocument:
+async def generate_daily_mission(
+    user_id: str,
+    mission_repo: MissionRepository,
+    question_repo: QuestionRepository,
+    current_datetime_utc: Optional[datetime] = None
+) -> DailyMissionDocument:
     """
     Generates and persists a new daily mission with 5 questions per user per day.
     Uses DailyMissionDocument and embeds full Question objects.
     """
-    all_questions = question_repository.get_all_questions()
+    all_questions = await question_repo.get_all_questions()
     if not all_questions:
         raise NoQuestionsAvailableError("The question repository is empty. Cannot generate a mission.")
 
@@ -144,7 +124,7 @@ async def generate_daily_mission(user_id: str, current_datetime_utc: Optional[da
     mission_date = current_datetime_utc.astimezone(TARGET_TIMEZONE).date()
 
     # Check if a mission for this user and date already exists
-    if _find_mission_in_db(user_id, datetime.combine(mission_date, datetime.min.time(), tzinfo=TARGET_TIMEZONE)):
+    if await mission_repo.find_mission(user_id, mission_date):
         raise MissionAlreadyExistsError(f"A mission for user '{user_id}' on {mission_date} already exists.")
 
     # Ensure we have enough questions to generate a mission
@@ -155,9 +135,11 @@ async def generate_daily_mission(user_id: str, current_datetime_utc: Optional[da
     question_ids = random.sample(list(all_questions.keys()), 5)
     
     # Fetch full question objects from the repository using the selected IDs
-    mission_questions = [question_repository.get_question_by_id(qid) for qid in question_ids]
+    mission_questions_tasks = [question_repo.get_question_by_id(qid) for qid in question_ids]
+    mission_questions_results = await asyncio.gather(*mission_questions_tasks)
+
     # Filter out any potential None results if an ID somehow becomes invalid between sampling and fetching
-    mission_questions = [q for q in mission_questions if q is not None]
+    mission_questions = [q for q in mission_questions_results if q is not None]
     
     if len(mission_questions) < 5:
         # This is an edge case that should rarely happen if the repository is consistent
@@ -174,11 +156,11 @@ async def generate_daily_mission(user_id: str, current_datetime_utc: Optional[da
     )
 
     # Persist the new mission
-    _save_mission_to_db(new_mission)
+    await mission_repo.save_mission(new_mission)
     print(f"Successfully generated and saved new mission for user '{user_id}' for date {mission_date}.")
     return new_mission
 
-async def archive_past_incomplete_missions() -> int:
+async def archive_past_incomplete_missions(mission_repo: MissionRepository) -> int:
     """
     Archives missions from previous days (UTC+7) that are not yet complete or already archived.
     Returns the count of archived missions.
@@ -187,18 +169,22 @@ async def archive_past_incomplete_missions() -> int:
     today_utc7 = get_utc7_today_date()
     # print(f"Service: Running archive job for missions before date (UTC+7): {today_utc7}")
 
-    missions_to_update: List[DailyMissionDocument] = []
-    for mission_doc in _mock_db_missions:
-        if mission_doc.date < today_utc7:
-            if mission_doc.status not in [MissionStatus.COMPLETE, MissionStatus.ARCHIVED]:
-                missions_to_update.append(mission_doc)
+    missions_to_update = await mission_repo.get_missions_to_archive(today_utc7)
     
+    if not missions_to_update:
+        return 0
+
+    # In a real DB, this could be a single bulk update operation.
+    # Here, we save one by one.
+    update_tasks = []
     for mission_doc in missions_to_update:
         mission_doc.status = MissionStatus.ARCHIVED
         mission_doc.updated_at = datetime.now(timezone.utc)
-        _save_mission_to_db(mission_doc) # This will update the existing entry in _mock_db_missions
-        archived_count += 1
-        # print(f"Service: Archived mission for user {mission_doc.user_id} for date {mission_doc.date}")
+        update_tasks.append(mission_repo.save_mission(mission_doc))
+    
+    await asyncio.gather(*update_tasks)
+    
+    archived_count = len(missions_to_update)
 
     # print(f"Service: Archived {archived_count} missions.")
     return archived_count
@@ -225,40 +211,14 @@ async def archive_past_incomplete_missions() -> int:
 if __name__ == '__main__':
     # This is a basic test runner for the service.
     # In a real application, you would have a more robust test suite.
+    # This section needs to be updated to work with the new DI-based functions.
+    # It is left here conceptually but will not run without providing repository instances.
     async def main():
         print("--- Running basic service tests ---")
         
-        # Ensure the repository can load questions
-        all_questions = question_repository.get_all_questions()
-        if not all_questions:
-            print("CRITICAL: Question repository failed to load any questions.")
-            return
-        print(f"Successfully loaded {len(all_questions)} questions from repository.")
-
-        # Test mission generation
-        test_user = "test_user_001"
-        try:
-            print(f"\nAttempting to generate a mission for {test_user}...")
-            mission = await generate_daily_mission(test_user)
-            print("Mission generated successfully.")
-            
-            # Test fetching the mission
-            print(f"\nAttempting to fetch the mission for {test_user}...")
-            fetched_mission = await get_todays_mission_for_user(test_user)
-            assert fetched_mission is not None
-            assert fetched_mission.user_id == test_user
-            print("Mission fetched successfully.")
-
-            # Test that generating again fails
-            print(f"\nAttempting to generate mission again (should fail)...")
-            try:
-                await generate_daily_mission(test_user)
-            except MissionAlreadyExistsError:
-                print("Correctly caught MissionAlreadyExistsError.")
-
-        except Exception as e:
-            print(f"An unexpected error occurred during testing: {e}")
-
-        print("\n--- Basic service tests finished ---")
+        # This test runner is now broken because it cannot provide the repository dependencies.
+        # It should be replaced with proper tests in the test suite.
+        print("!!! This manual test runner is deprecated and will not work correctly without refactoring. !!!")
+        print("!!! Please rely on the pytest suite for testing. !!!")
 
     asyncio.run(main()) 

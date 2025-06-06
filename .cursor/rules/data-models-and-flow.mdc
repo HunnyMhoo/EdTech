@@ -1,41 +1,77 @@
 ---
-description: Used for analyzing data models, API structures, and data flow between frontend/backend for mission-based educational systems
-globs: frontend/services/*.ts,backend/models/*.py,backend/services/*.py,backend/routes/*.py
+description: Defines data models, API structures, and frontend-backend data flow for daily missions and questions
+globs: **/*mission*.{ts,js,py},**/*question*.{ts,js,py},**/models/*.{ts,js,py},**/services/*.{ts,js,py}
 alwaysApply: false
 ---
 
 
 # data-models-and-flow
 
-## Mission Data Model (Importance: 95)
-`backend/models/daily_mission.py`
-- Daily mission structure contains exactly 5 questions per user
-- Mission states: NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED
-- Question model includes: question_id, text, skill_area, difficulty_level, choices
-- Thai-language feedback support integrated into question model
+### Core Mission Data Model
+Importance Score: 95
 
-## API Response Structures (Importance: 85)
-`backend/models/api_responses.py`
-- Mission progress tracking response includes current_question_index and answer history
-- Question response format standardizes choice options and feedback delivery
-- Mission state transitions handled through structured status updates
-- Timezone-aware timestamps using UTC+7 standard
+The daily mission model represents the core educational content structure:
 
-## Data Flow Architecture (Importance: 90)
-`frontend/services/missionApi.ts`, `backend/routes/missions.py`
-- Frontend maintains mission state with progress caching
-- Backend manages mission lifecycle including:
-  - Daily mission generation with timezone rules
-  - Progress state synchronization
-  - Answer validation and feedback delivery
-- Bi-directional sync ensures consistent mission states
+```typescript
+interface DailyMission {
+  id: string
+  userId: string 
+  status: MissionStatus
+  questions: Question[]
+  answers: UserAnswer[]
+  createdAt: Date
+  completedAt?: Date
+}
+```
 
-## Mission Progress Management (Importance: 80)
-`backend/services/mission_service.py`
-- User-specific mission tracking with daily reset boundaries
-- Answer persistence with validation rules
-- Automatic archival of incomplete missions at day boundary
-- Mission date calculations use UTC+7 timezone for Thai operations
+Key business rules:
+- Each mission contains exactly 5 unique questions
+- Missions reset daily at 4:00 AM UTC+7 (Thailand timezone)
+- Statuses transition from not_started -> in_progress -> completed
+- Incomplete missions are archived during daily reset
+
+### API Response Structure 
+Importance Score: 85
+
+Mission-specific API responses follow a standardized format:
+
+```typescript
+interface MissionResponse {
+  mission: DailyMission
+  feedback?: {
+    isCorrect: boolean
+    explanation: string
+  }
+  errors?: string[]
+}
+```
+
+### Data Flow
+Importance Score: 90
+
+1. Mission Generation
+- Backend generates daily missions at 4:00 AM UTC+7
+- Questions are randomly selected based on user's progress
+- Duplicate questions are prevented within 7-day window
+
+2. Mission Retrieval
+- Frontend fetches mission via `fetchDailyMission` 
+- Backend validates mission freshness against UTC+7
+- Expired missions trigger new generation
+
+3. Progress Updates
+- Frontend submits answers via `updateMissionProgressApi`
+- Backend validates answers and updates mission status
+- Response includes feedback and explanation
+
+### Timezone Handling
+Importance Score: 80
+
+The system standardizes on UTC+7 (Thailand) for all mission-related operations:
+- Mission generation and reset timing
+- Date comparisons for mission freshness
+- Archival of incomplete missions
+- Frontend display of mission availability
 
 $END$
 

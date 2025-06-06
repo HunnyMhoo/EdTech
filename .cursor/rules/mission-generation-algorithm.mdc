@@ -1,46 +1,51 @@
 ---
-description: Defines core mission generation rules, question selection, and daily reset logic for educational content delivery
-globs: backend/services/mission_service.py,backend/jobs/daily_reset.py,backend/routes/missions.py,frontend/services/missionApi.ts
+description: Documentation of the unique business logic for generating personalized daily missions with 5 questions per user
+globs: **/mission_service.py,**/mission_repository.py,**/question_repository.py,**/daily_mission.py
 alwaysApply: false
 ---
 
 
 # mission-generation-algorithm
 
-Core algorithm components for daily educational mission generation and management.
+The mission generation algorithm implements core business logic for creating personalized daily missions:
 
-Mission Generation Rules (Importance: 95)
-- Generates exactly 5 randomly selected questions per daily mission
-- Ensures question uniqueness within each mission
-- Operates on UTC+7 timezone for Thai educational system alignment 
-- Enforces single active mission per user per day
-- Requires minimum question pool size of 5 for mission creation
+### Mission Creation Rules
+- Generates exactly 5 unique questions per daily mission per user
+- Questions are selected from a pre-populated question repository 
+- Same user cannot receive duplicate missions on the same day
+- Missions reset at 4:00 AM UTC+7 (Thailand timezone)
 
-Question Selection Logic (Importance: 90)
-- Randomly selects questions specific to GAT เชื่อมโยง content
-- Questions must include skill area and difficulty level attributes
-- Supports Thai-language feedback for each question
-- Maintains question cache for performance optimization
-- Prevents duplicate questions within same mission
+### Question Selection Logic
+1. Checks question repository cache for available questions
+2. Filters out questions already used in user's previous missions
+3. Randomly selects 5 questions from remaining pool
+4. Raises MissionGenerationError if insufficient unique questions available
+5. Associates selected questions with user's daily mission
 
-Mission Status Workflow (Importance: 85)
-- Tracks four distinct states: NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED
-- Automatically archives incomplete missions at daily reset (4:00 AM UTC)
-- Implements grace period of 1 hour for missed reset executions
-- Maintains user progression through question_index tracking
+### Mission Status Management 
+- Status transitions:
+  - not_started -> in_progress (on first answer)
+  - in_progress -> completed (all questions answered)
+  - in_progress -> archived (at daily reset if incomplete)
 
-Progress Management (Importance: 80)
-- Enforces sequential question progression
-- Prevents modification of previously submitted answers
-- Validates mission completion based on answer requirements
-- Maintains separate answer state from question progression
-- Implements automatic progress saving during navigation
+### Error Handling
+Custom domain exceptions:
+- MissionGenerationError: General generation failures
+- NoQuestionsAvailableError: Insufficient unique questions
+- MissionAlreadyExistsError: Duplicate mission detected
 
-Key Files:
-- backend/services/mission_service.py: Core mission generation logic
-- backend/jobs/daily_reset.py: Mission lifecycle management
-- frontend/services/missionApi.ts: Mission state management
-- backend/routes/missions.py: Mission progress tracking
+### Archival Process
+- Daily job archives incomplete missions from previous day
+- Uses UTC+7 timezone for determining mission expiry
+- Maintains mission history for user progress tracking
+
+Relevant Files:
+- backend/services/mission_service.py
+- backend/models/daily_mission.py
+- backend/repositories/question_repository.py
+- backend/jobs/daily_reset.py
+
+Importance Score: 95 - Core business logic for main product feature
 
 $END$
 

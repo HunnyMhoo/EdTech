@@ -1,178 +1,37 @@
-import datetime
+import uuid
+from datetime import datetime, date
+from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
-
-# It is assumed that if you are using an ODM like Beanie,
-# you would import PydanticObjectId from beanie or a similar construct
-# for fields that are MongoDB ObjectIds. For this example,
-# we are using basic types like str for IDs.
-
-
-class ChoiceOption(BaseModel):
-    """
-    Represents a single choice for a multiple-choice question.
-    """
-    id: str = Field(..., description="The unique identifier for the choice (e.g., 'a', 'b', '1', '2').")
-    text: str = Field(..., description="The text content of the choice.")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "id": "a",
-                "text": "Option A"
-            }
-        }
-
-
-class Question(BaseModel):
-    """
-    Pydantic model representing a single question.
-    """
-    question_id: str = Field(..., description="The unique identifier for the question.")
-    question_text: str = Field(..., description="The text of the question.")
-    skill_area: str = Field(..., description="The skill area the question belongs to.")
-    difficulty_level: int = Field(..., description="The difficulty level of the question.")
-    feedback_th: str = Field(default="", description="Thai feedback for the question.")
-    choices: List[ChoiceOption] = Field(default_factory=list, description="A list of multiple-choice options for the question.")
-    correct_answer_id: Optional[str] = Field(default=None, description="The ID of the correct choice from the 'choices' list.")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "question_id": "GATQ001",
-                "question_text": "What is the synonym for \'ephemeral\'?",
-                "skill_area": "Vocabulary",
-                "difficulty_level": 1,
-                "feedback_th": "นี่คือคำติชมตัวอย่าง",
-                "choices": [
-                    {"id": "a", "text": "Permanent"},
-                    {"id": "b", "text": "Transitory"},
-                    {"id": "c", "text": "Beautiful"}
-                ],
-                "correct_answer_id": "b"
-            }
-        }
-
-
 class MissionStatus(str, Enum):
-    """
-    Represents the completion status of a daily mission.
-    """
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     COMPLETE = "complete"
     ARCHIVED = "archived"
 
+class ChoiceOption(BaseModel):
+    id: str = Field(default_factory=lambda: f"choice_{uuid.uuid4().hex}")
+    text: str
+
+class Question(BaseModel):
+    question_id: str = Field(default_factory=lambda: f"GATQ_{uuid.uuid4().hex[:6].upper()}")
+    question_text: str
+    skill_area: str
+    difficulty_level: int
+    choices: List[ChoiceOption]
+    correct_answer_id: str
+    feedback_th: str
 
 class DailyMissionDocument(BaseModel):
-    """
-    Pydantic model representing the schema for a user's daily mission
-    stored in MongoDB.
-    """
-    user_id: str = Field(..., description="The unique identifier for the user.")
-    date: datetime.date = Field(..., description="The calendar date for which this mission is assigned (YYYY-MM-DD).")
-    questions: List[Question] = Field(
-        ...,
-        description="A list of question objects that make up the mission.",
-        min_length=5,
-        max_length=5
-    )
-    status: MissionStatus = Field(
-        default=MissionStatus.NOT_STARTED,
-        description="The current completion status of the mission."
-    )
-    current_question_index: int = Field(
-        default=0,
-        description="The index of the current question the user is on."
-    )
-    answers: List[dict] = Field(
-        default_factory=list,
-        description='A list of answers provided by the user, e.g., [{"question_id": "q1", "answer": "option_a"}].'
-    )
-    created_at: datetime.datetime = Field(
-        default_factory=datetime.datetime.utcnow,
-        description="Timestamp of when the mission record was created (UTC)."
-    )
-    updated_at: datetime.datetime = Field(
-        default_factory=datetime.datetime.utcnow,
-        description="Timestamp of when the mission record was last updated (UTC)."
-    )
+    user_id: str
+    date: date
+    questions: List[Question]
+    status: MissionStatus = MissionStatus.NOT_STARTED
+    current_question_index: int = 0
+    answers: list = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
-        # Example of how to configure Pydantic to use enum values
-        use_enum_values = True
-        # If you need to ensure that the model can be used with ORMs or ODMs
-        # that expect arbitrary types to be allowed for model attributes,
-        # you might set arbitrary_types_allowed = True,
-        # but it's generally better to ensure types are well-defined.
-        # arbitrary_types_allowed = True
-
-        # Example of schema extras for OpenAPI generation if using FastAPI
-        json_schema_extra = {
-            "example": {
-                "user_id": "user_123_abc",
-                "date": "2023-10-27",
-                "questions": [
-                    {
-                        "question_id": "GATQ001",
-                        "question_text": "What is the synonym for 'ephemeral'?",
-                        "skill_area": "Vocabulary",
-                        "difficulty_level": 1
-                    },
-                    {
-                        "question_id": "GATQ002",
-                        "question_text": "Identify the logical fallacy...",
-                        "skill_area": "Logical Reasoning",
-                        "difficulty_level": 2
-                    },
-                    {
-                        "question_id": "GATQ003",
-                        "question_text": "What is the capital of Thailand?",
-                        "skill_area": "Geography",
-                        "difficulty_level": 1
-                    },
-                    {
-                        "question_id": "GATQ004",
-                        "question_text": "Solve for x: 2x + 3 = 7",
-                        "skill_area": "Mathematics",
-                        "difficulty_level": 2
-                    },
-                    {
-                        "question_id": "GATQ005",
-                        "question_text": "Who wrote 'Hamlet'?",
-                        "skill_area": "Literature",
-                        "difficulty_level": 3
-                    }
-                ],
-                "status": "not_started",
-                "current_question_index": 0,
-                "answers": [{"question_id": "q1", "answer": "option_a"}],
-                "created_at": "2023-10-27T10:00:00.000Z",
-                "updated_at": "2023-10-27T10:00:00.000Z",
-            }
-        }
-
-# Note on Indexing:
-# The requirement "Index userId + date to prevent duplicates" needs to be implemented
-# at the database level.
-# If using BeanieODM, you would add something like this to the DailyMissionDocument class:
-#
-# class Settings:
-#     indexes = [
-#         [("user_id", pymongo.ASCENDING), ("date", pymongo.ASCENDING), {"unique": True}]
-#     ]
-#
-# If using Motor directly with Pydantic, this index would typically be created
-# as part of your application's startup logic or a database migration script, e.g.:
-#
-# async def create_indexes(db_collection):
-#     await db_collection.create_index(
-#         [("user_id", 1), ("date", 1)],
-#         unique=True,
-#         name="user_date_unique_idx"
-#     )
-#
-# This file defines the Pydantic model. The actual index creation
-# depends on the chosen database interaction library (e.g., BeanieODM, Motor). 
+        use_enum_values = True 

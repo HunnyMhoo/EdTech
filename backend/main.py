@@ -3,8 +3,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 
 # Import routers from your application
-from routes import missions # Assuming missions.py is in backend/routes
-from jobs.daily_reset import run_daily_reset_job # Import the job
+from backend.routes import missions, questions
+from backend.jobs.daily_reset import run_daily_reset_job
+from backend.dependencies import get_mission_repository
+from backend.database import db_manager
 # If you have other routers, import them here as well
 # from backend.routes import another_router 
 
@@ -25,9 +27,22 @@ scheduler = AsyncIOScheduler(timezone="UTC") # Explicitly set timezone to UTC fo
 
 @app.on_event("startup")
 async def startup_event():
+    # Connect to the database
+    db_manager.connect_to_database()
+
+    # Get an instance of the repository to pass to the job
+    mission_repo = get_mission_repository(db_manager.get_database())
+
     # Add the job to the scheduler
     # Run daily at 4:00 AM UTC
-    scheduler.add_job(run_daily_reset_job, 'cron', hour=4, minute=0, misfire_grace_time=3600)
+    scheduler.add_job(
+        run_daily_reset_job, 
+        'cron', 
+        hour=4, 
+        minute=0, 
+        misfire_grace_time=3600,
+        args=[mission_repo] # Pass the repository instance to the job
+    )
     # Start the scheduler
     scheduler.start()
     job_logger.info("Scheduler started and daily_reset_job scheduled.")
@@ -38,11 +53,14 @@ async def shutdown_event():
     if scheduler.running:
         scheduler.shutdown()
         job_logger.info("Scheduler shut down.")
+    # Close the database connection
+    db_manager.close_database_connection()
 
 # Include routers into the application
 # The prefix will ensure all routes in missions.router start with /api
 # Tags are useful for organizing endpoints in the OpenAPI documentation
 app.include_router(missions.router, prefix="/api", tags=["Missions"])
+app.include_router(questions.router, prefix="/api", tags=["Questions"])
 # Include other routers here if you have them
 # app.include_router(another_router.router, prefix="/api/v1/another", tags=["Another Feature"])
 
@@ -60,4 +78,6 @@ async def health_check():
 # Example: Accessing the missions endpoint after running:
 # GET http://127.0.0.1:8000/api/missions/today
 # Example: Accessing the health check endpoint:
-# GET http://127.0.0.1:8000/health 
+# GET http://127.0.0.1:8000/health
+# Example: Accessing a question:
+# GET http://127.0.0.1:8000/api/questions/GATQ001 

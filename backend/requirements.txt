@@ -1,4 +1,6 @@
 fastapi
 uvicorn[standard]
 APScheduler
-pydantic 
+pydantic
+motor
+python-dotenv 

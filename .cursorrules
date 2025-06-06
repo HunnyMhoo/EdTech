@@ -10,52 +10,39 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements a daily educational mission platform specifically designed for Thai GAT เชื่อมโยง practice, operating with strict timezone-specific rules (UTC+7).
+The EdTech platform implements a daily mission system with the following core business components:
 
-Core Business Components:
+### Mission Generation Engine (Importance: 95)
+- Located in `backend/services/mission_service.py`
+- Generates personalized daily sets of 5 unique questions per user
+- Handles mission state transitions and archiving based on UTC+7 timezone
+- Prevents duplicate missions and handles insufficient question scenarios
 
-1. Daily Mission System (Importance: 95)
-- Generates exactly 5 random questions per daily mission
-- Enforces single active mission per user per day
-- Maintains mission states: NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED
-- Automatically archives incomplete missions at daily reset
+### Mission Progress Management (Importance: 90) 
+- Tracks user progress through `frontend/hooks/useMission.ts`
+- Maintains mission states: not_started, in_progress, completed
+- Saves partial progress to allow mission resumption
+- Archives incomplete missions during daily reset at 4:00 AM UTC
 
-Key files:
-```
-backend/services/mission_service.py
-frontend/screens/MissionScreen.tsx
-```
+### Question Management System (Importance: 85)
+- Question repository initialization and seeding from CSV
+- In-memory caching for rapid question access
+- Validation of question uniqueness within missions
+- Custom data models for structured question content
 
-2. Question Progression Engine (Importance: 85)
-- Enforces sequential question completion
-- Validates answers before allowing progression
-- Prevents modification of submitted answers
-- Tracks current_question_index for progress management
+### User Feedback System (Importance: 80)
+- Immediate feedback after answer submission
+- Shows correct/incorrect status with explanations
+- Tracks question-level progress within missions
+- Updates mission status based on completion criteria
 
-Key files:
-```
-frontend/services/missionApi.ts
-backend/routes/missions.py
-```
+### Mission API Layer (Importance: 75)
+- Daily mission fetching and progress updates
+- Timezone-aware mission delivery (UTC+7)
+- Standardized response formats for mission data
+- Error handling for mission generation failures
 
-3. Mission Lifecycle Management (Importance: 80)
-- Daily reset process at 4:00 AM UTC
-- Archives incomplete missions from previous day
-- Maintains mission availability periods
-- Handles mission state transitions
-
-Key files:
-```
-backend/jobs/daily_reset.py
-```
-
-4. Educational Content Management (Importance: 75)
-- Thai-language feedback support
-- Question categorization by skill areas
-- Difficulty level assignment
-- Multiple-choice format with answer validation
-
-The system architecture emphasizes strict progression rules and daily engagement patterns, specifically tailored for Thai educational requirements and timezone considerations.
+The system organizes these components to deliver a cohesive educational experience through daily missions, with strong emphasis on progress tracking and immediate feedback to support learning objectives.
 
 $END$
 

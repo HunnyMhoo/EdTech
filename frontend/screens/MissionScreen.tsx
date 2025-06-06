@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
-import { useMission } from '../hooks/useMission';
-import FeedbackModal from '../components/FeedbackModal';
+import { useMission } from '@hooks/useMission';
+import FeedbackModal from '@components/FeedbackModal';
+import type { Answer, Question } from '@services/missionApi';
+
+// Extract the choice type from the Question interface for local use
+type Choice = NonNullable<Question['choices']>[number];
 
 // Assuming navigation props are passed if this screen is part of a navigation stack
 // For simplicity, not strictly typed here, but in a real app, you'd use @react-navigation/native types
@@ -29,7 +33,7 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
   useEffect(() => {
     // When question changes, check for a previous answer and set the selected choice
     if (currentQuestion) {
-      const existingAnswer = userAnswers.find(ans => ans.question_id === currentQuestion.question_id);
+      const existingAnswer = userAnswers.find((ans: Answer) => ans.question_id === currentQuestion.question_id);
       setSelectedChoiceId(existingAnswer?.answer || '');
     }
   }, [currentQuestion, userAnswers]);
@@ -41,7 +45,7 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
     }
 
     const isCorrect = selectedChoiceId === currentQuestion.correct_answer_id;
-    const correctAnswerChoice = currentQuestion.choices?.find(c => c.id === currentQuestion.correct_answer_id);
+    const correctAnswerChoice = currentQuestion.choices?.find((c: Choice) => c.id === currentQuestion.correct_answer_id);
 
     setFeedbackData({
       isCorrect,
@@ -70,7 +74,7 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
     return <View style={styles.container}><Text>No mission data available.</Text></View>;
   }
 
-  const isAnswered = userAnswers.some(ans => ans.question_id === currentQuestion.question_id);
+  const isAnswered = userAnswers.some((ans: Answer) => ans.question_id === currentQuestion.question_id);
   
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -90,7 +94,7 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
         <Text style={styles.questionText}>{`Question ${currentQuestionIndex + 1}: ${currentQuestion.question_text}`}</Text>
         {currentQuestion.choices && currentQuestion.choices.length > 0 ? (
           <View style={{ width: '100%' }}>
-            {currentQuestion.choices.map((choice) => (
+            {currentQuestion.choices.map((choice: Choice) => (
               <TouchableOpacity
                 key={choice.id}
                 style={[

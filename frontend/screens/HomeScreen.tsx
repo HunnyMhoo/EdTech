@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ActivityIndicator, Button, StyleSheet, TextInput } from 'react-native';
-import { fetchDailyMission, Mission, Question } from '../services/missionApi';
+import { fetchDailyMission, Mission, Question } from '@services/missionApi';
 
 // Placeholder for TailwindCSS or other styling solution
 // For example, if using tailwind-rn:

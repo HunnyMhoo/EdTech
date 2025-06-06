@@ -1,91 +1,58 @@
 ---
-description: API integration and contract documentation for cross-service communication between frontend and backend systems
-globs: frontend/services/*.ts,backend/routes/*.py,backend/models/api_responses.py
+description: Used for defining and documenting API contracts, endpoints, and integration patterns between frontend and backend services
+globs: **/api/**,**/services/**,**/*Api.ts,**/routes/**
 alwaysApply: false
 ---
 
 
 # api-integration
 
-## API Contract
+The API integration layer implements the following key business contracts:
 
-### Mission Management Endpoints
+### Mission API Contract
+- **Endpoint**: `/api/missions/daily`
+- **Purpose**: Retrieves daily mission content for users
+- **File**: `frontend/services/missionApi.ts`
+- **Business Logic**:
+  - Fetches personalized 5-question mission based on user ID
+  - Handles mission state transitions (not_started -> in_progress -> completed)
+  - Returns mission progress, current question position, and completion status
+  - Importance Score: 95
 
-`/api/missions`
-- Purpose: Daily mission lifecycle management
-- Response Format: Structured mission objects with status, questions, and progress
-- Key Parameters: user_id, mission_date (UTC+7)
+### Mission Progress API
+- **Endpoint**: `/api/missions/{id}/progress` 
+- **Purpose**: Updates user progress through daily missions
+- **File**: `backend/routes/missions.py`
+- **Business Logic**:
+  - Validates answer submissions against correct responses
+  - Tracks completion percentage and question navigation
+  - Archives missions at 4AM UTC+7 timezone
+  - Importance Score: 85
 
-### Status States
-- NOT_STARTED: Initial mission state
-- IN_PROGRESS: Active mission with partial completion
-- COMPLETE: All questions answered
-- ARCHIVED: Past incomplete missions
+### Question API Contract
+- **Endpoint**: `/api/questions/{id}`
+- **Purpose**: Retrieves individual question content
+- **File**: `backend/routes/questions.py`
+- **Business Logic**: 
+  - Returns question text, choices, correct answer and explanation
+  - Validates that questions belong to user's current mission
+  - Importance Score: 75
 
-### Progress Tracking
-Integration between frontend mission service and backend tracking:
-- Question index syncing
-- Answer history persistence
-- State transition validation
-
-### Error Handling
-Standardized error response format:
-```
+### Error Response Format
+```json
 {
-  error_code: string
-  message: string
-  details?: object
+  "status": "error",
+  "code": "MISSION_NOT_FOUND",
+  "message": "No active mission found for user"
 }
 ```
 
-Key error scenarios:
-- Mission already exists for date
-- Invalid mission state transition
-- Question index out of bounds
-
-## Integration Points
-
-### Frontend Services
-Location: `frontend/services/missionApi.ts`
-- Mission state management
-- Progress synchronization
-- Answer submission handling
-
-### Backend Routes
-Location: `backend/routes/missions.py`
-- Mission lifecycle endpoints
-- Progress tracking APIs
-- State transition validation
-
-## Data Models
-
-### Mission Response Format
-```
-{
-  mission_id: string
-  status: MissionStatus
-  current_question: number
-  questions: Question[]
-  answers: Answer[]
-}
-```
-
-### Question Format
-```
-{
-  question_id: string
-  text: string
-  choices: Choice[]
-  feedback_th?: string
-}
-```
-
-Importance Scores:
-- Mission Management API Contract: 95
-- Status State Management: 85
-- Progress Tracking Integration: 80
-- Error Handling Patterns: 75
-- Data Model Definitions: 70
+### Custom Domain Rules
+- Missions reset daily at 4AM UTC+7 (Bangkok timezone)
+- Maximum 5 questions per daily mission
+- Questions cannot be repeated within same mission
+- Mission progress must be saved before navigating questions
+- Importance Score: 90
 
 $END$
 
