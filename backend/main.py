@@ -23,7 +23,7 @@ app = FastAPI(
 )
 
 # Initialize scheduler
-scheduler = AsyncIOScheduler(timezone="UTC") # Explicitly set timezone to UTC for the scheduler
+scheduler = AsyncIOScheduler(timezone="Asia/Bangkok") # Explicitly set timezone to UTC for the scheduler
 
 @app.on_event("startup")
 async def startup_event():
@@ -34,7 +34,7 @@ async def startup_event():
     mission_repo = get_mission_repository(db_manager.get_database())
 
     # Add the job to the scheduler
-    # Run daily at 4:00 AM UTC
+    # Run daily at 4:00 AM UTC+7
     scheduler.add_job(
         run_daily_reset_job, 
         'cron', 

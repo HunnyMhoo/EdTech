@@ -1,68 +1,41 @@
-require('react-native/jest/setup.js');
-global.__DEV__ = true;
-require('jest-fetch-mock').enableMocks();
-
 import 'react-native-gesture-handler/jestSetup';
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
+import '@testing-library/jest-native/extend-expect';
+import { enableFetchMocks } from 'jest-fetch-mock';
+
+enableFetchMocks();
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
-
-// Reset modules and mock 'react-native' to ensure a clean environment
-jest.resetModules();
-
-jest.mock('react-native', () => {
-  const RN = jest.requireActual('react-native');
-
-  // Globally mock StyleSheet
-  RN.StyleSheet = {
-    ...RN.StyleSheet,
-    create: styles => styles,
-  };
-
-  // Mock other native modules as needed
-  RN.NativeModules.UIManager = {
-    RCTView: {
-      directViewConfig: {
-        uiViewClassName: 'RCTView',
-        validAttributes: { style: true },
-      },
-    },
-    customBubblingEventTypes: {},
-    customDirectEventTypes: {},
-  };
-
-  RN.NativeModules.RNGestureHandlerModule = {
-    attachGestureHandler: jest.fn(),
-    createGestureHandler: jest.fn(),
-    dropGestureHandler: jest.fn(),
-    updateGestureHandler: jest.fn(),
-    State: {},
-    Directions: {},
-  };
-
-  // Mock SettingsManager
-  RN.NativeModules.SettingsManager = {
-    settings: {
-      AppleLocale: 'en_US',
-      AppleLanguages: ['en-US'],
-    },
-  };
-
-  return RN;
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock');
+  Reanimated.useSharedValue = jest.fn;
+  return Reanimated;
 });
 
-// Clean up any other specific mocks that might conflict
-jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
-  getEnforcing: () => ({}),
-}));
-jest.mock('react-native/Libraries/StyleSheet/StyleSheet', () => ({
-  create: styles => styles,
-}));
-jest.mock('react-native/Libraries/Components/View/ReactNativeStyleAttributes', () => ({}));
-jest.mock('react-native/Libraries/NewAppScreen', () => ({}));
-jest.mock('react-native/Libraries/Components/View/View', () => 'View');
-jest.mock('react-native/src/private/featureflags/specs/NativeReactNativeFeatureFlags', () => ({}));
-jest.mock('react-native/src/private/featureflags/ReactNativeFeatureFlagsBase', () => ({}));
-jest.mock('react-native/src/private/featureflags/ReactNativeFeatureFlags', () => ({})); 
+// Mock react-native-gesture-handler
+jest.mock('react-native-gesture-handler', () => {
+  const View = require('react-native/Libraries/Components/View/View');
+  return {
+    Swipeable: View,
+    DrawerLayout: View,
+    State: {},
+    ScrollView: View,
+    Slider: View,
+    Switch: View,
+    TextInput: View,
+    ToolbarAndroid: View,
+    ViewPagerAndroid: View,
+    DrawerLayoutAndroid: View,
+    WebView: View,
+    NativeViewGestureHandler: View,
+    TapGestureHandler: View,
+    FlingGestureHandler: View,
+    ForceTouchGestureHandler: View,
+    LongPressGestureHandler: View,
+    PanGestureHandler: View,
+    PinchGestureHandler: View,
+    RotationGestureHandler: View,
+    ...jest.requireActual('react-native-gesture-handler'),
+  };
+});

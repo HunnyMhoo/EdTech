@@ -1,4 +1,3 @@
-import random
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 import asyncio
@@ -7,6 +6,10 @@ from fastapi import Depends
 from backend.models.daily_mission import DailyMissionDocument, MissionStatus, Question
 from backend.repositories.question_repository import QuestionRepository
 from backend.repositories.mission_repository import MissionRepository
+
+# Import from new utility and service files
+from .utils import get_utc7_today_date
+from .mission_generation_service import generate_daily_mission, MissionGenerationError
 
 # Define the target timezone: UTC+7
 TARGET_TIMEZONE = timezone(timedelta(hours=7))
@@ -43,36 +46,33 @@ def get_utc7_today_date() -> datetime.date:
     """Calculates today's date in UTC+7."""
     return datetime.now(TARGET_TIMEZONE).date()
 
+def get_current_time_in_target_timezone() -> datetime:
+    """Gets the current time in the target timezone."""
+    return datetime.now(TARGET_TIMEZONE)
+
 async def get_todays_mission_for_user(
     user_id: str,
     mission_repo: MissionRepository,
     question_repo: QuestionRepository
 ) -> Optional[DailyMissionDocument]:
     """
-    Retrieves today's (UTC+7) mission for a given user, including progress.
+    Retrieves today's (UTC+7) mission for a given user.
     If no mission exists, it attempts to generate one.
     """
     today_target_tz_date = get_utc7_today_date()
     
-    # print(f"Service: Attempting to fetch mission for user {user_id} for date (UTC+7 today): {today_target_tz_date}")
     mission_doc = await mission_repo.find_mission(user_id, today_target_tz_date)
             
     if not mission_doc:
-        # print(f"Service: No mission found for user {user_id} for date {today_target_tz_date}. Attempting to generate one.")
         try:
             mission_doc = await generate_daily_mission(
                 user_id=user_id,
                 mission_repo=mission_repo,
                 question_repo=question_repo
             )
-            # print(f"Service: Successfully generated mission for user {user_id} on demand.")
-        except MissionGenerationError as e:
-            # print(f"Service: Error generating mission on demand for user {user_id}: {e}")
-            # If generation fails (e.g., no questions), we still return None, 
-            # and the route will raise a 404 with a specific message from the exception if possible,
-            # or the generic "No mission found" if generate_daily_mission doesn't raise an HTTP-friendly error.
-            # For now, the route will handle the 404 if mission_doc remains None.
-            pass # Let it return None, route will handle 404
+        except MissionGenerationError:
+            # Let it return None, the route will handle the 404 response.
+            pass
         
     return mission_doc
 
@@ -97,7 +97,7 @@ async def update_mission_progress(
     mission_doc.answers = answers
     if status:
         mission_doc.status = status
-    mission_doc.updated_at = datetime.now(timezone.utc)
+    mission_doc.updated_at = get_current_time_in_target_timezone()
 
     await mission_repo.save_mission(mission_doc)
     # print(f"Service: Updated progress for user {user_id}. Index: {current_question_index}, Answers: {len(answers)}")
@@ -151,8 +151,8 @@ async def generate_daily_mission(
         date=mission_date,
         questions=mission_questions,
         status=MissionStatus.NOT_STARTED,
-        created_at=current_datetime_utc.astimezone(TARGET_TIMEZONE),
-        updated_at=current_datetime_utc.astimezone(TARGET_TIMEZONE)
+        created_at=get_current_time_in_target_timezone(),
+        updated_at=get_current_time_in_target_timezone()
     )
 
     # Persist the new mission
@@ -179,7 +179,7 @@ async def archive_past_incomplete_missions(mission_repo: MissionRepository) -> i
     update_tasks = []
     for mission_doc in missions_to_update:
         mission_doc.status = MissionStatus.ARCHIVED
-        mission_doc.updated_at = datetime.now(timezone.utc)
+        mission_doc.updated_at = get_current_time_in_target_timezone()
         update_tasks.append(mission_repo.save_mission(mission_doc))
     
     await asyncio.gather(*update_tasks)

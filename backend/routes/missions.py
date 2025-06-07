@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any, Optional
 
-# Updated imports to use DailyMissionDocument from the models package
+# Updated imports to reflect service refactoring
 from backend.models.daily_mission import DailyMissionDocument, MissionStatus
-from backend.services.mission_service import get_todays_mission_for_user, update_mission_progress
+from backend.services.mission_service import get_todays_mission_for_user
+from backend.services.mission_progress_service import update_mission_progress
 from backend.models.api_responses import MissionResponse, ErrorResponse
 from backend.dependencies import get_mission_repository, get_question_repository
 from backend.repositories.mission_repository import MissionRepository

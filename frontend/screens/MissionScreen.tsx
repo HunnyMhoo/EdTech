@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, Button, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useMission } from '@hooks/useMission';
 import FeedbackModal from '@components/FeedbackModal';
+import QuestionDisplay from '@components/QuestionDisplay';
+import ChoiceList from '@components/ChoiceList';
+import MissionNav from '@components/MissionNav';
 import type { Answer, Question } from '@services/missionApi';
 
 // Extract the choice type from the Question interface for local use
@@ -10,7 +13,7 @@ type Choice = NonNullable<Question['choices']>[number];
 // Assuming navigation props are passed if this screen is part of a navigation stack
 // For simplicity, not strictly typed here, but in a real app, you'd use @react-navigation/native types
 type MissionScreenProps = {
-  navigation?: any; 
+  navigation?: any;
 };
 
 const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
@@ -45,7 +48,7 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
     }
 
     const isCorrect = selectedChoiceId === currentQuestion.correct_answer_id;
-    const correctAnswerChoice = currentQuestion.choices?.find((c: Choice) => c.id === currentQuestion.correct_answer_id);
+    const correctAnswerChoice = currentQuestion.choices?.find(c => c.id === currentQuestion.correct_answer_id);
 
     setFeedbackData({
       isCorrect,
@@ -75,7 +78,7 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
   }
 
   const isAnswered = userAnswers.some((ans: Answer) => ans.question_id === currentQuestion.question_id);
-  
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <FeedbackModal
@@ -89,41 +92,33 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
       <Text style={styles.title}>Daily Mission</Text>
       <Text style={styles.date}>Date: {new Date(mission.date).toLocaleDateString()}</Text>
       <Text style={styles.status}>Status: {mission.status}</Text>
-      
+
       <View style={styles.questionContainer}>
-        <Text style={styles.questionText}>{`Question ${currentQuestionIndex + 1}: ${currentQuestion.question_text}`}</Text>
+        <QuestionDisplay
+          questionIndex={currentQuestionIndex}
+          questionText={currentQuestion.question_text}
+        />
         {currentQuestion.choices && currentQuestion.choices.length > 0 ? (
-          <View style={{ width: '100%' }}>
-            {currentQuestion.choices.map((choice: Choice) => (
-              <TouchableOpacity
-                key={choice.id}
-                style={[
-                  styles.choiceButton,
-                  selectedChoiceId === choice.id && styles.choiceButtonSelected,
-                  isAnswered && choice.id === currentQuestion.correct_answer_id && styles.correctChoice,
-                  isAnswered && selectedChoiceId === choice.id && selectedChoiceId !== currentQuestion.correct_answer_id && styles.incorrectChoice,
-                ]}
-                onPress={() => !isAnswered && setSelectedChoiceId(choice.id)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: selectedChoiceId === choice.id, disabled: isAnswered }}
-                accessible={true}
-                disabled={isAnswered}
-              >
-                <Text style={styles.choiceText}>{choice.text}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ChoiceList
+            choices={currentQuestion.choices}
+            selectedChoiceId={selectedChoiceId}
+            onSelectChoice={setSelectedChoiceId}
+            isAnswered={isAnswered}
+            correctAnswerId={currentQuestion.correct_answer_id}
+          />
         ) : (
           <Text style={{ color: 'red' }}>No choices available for this question.</Text>
         )}
         <Button title="Submit Answer" onPress={handleAnswerSubmit} disabled={isAnswered || !selectedChoiceId} />
       </View>
 
-      <View style={styles.navigationButtons}>
-        <Button title="Previous" onPress={() => goToQuestion(currentQuestionIndex - 1)} disabled={currentQuestionIndex === 0} />
-        <Button title="Next" onPress={() => goToQuestion(currentQuestionIndex + 1)} disabled={currentQuestionIndex === mission.questions.length - 1} />
-      </View>
-      
+      <MissionNav
+        onPrevious={() => goToQuestion(currentQuestionIndex - 1)}
+        onNext={() => goToQuestion(currentQuestionIndex + 1)}
+        isPreviousDisabled={currentQuestionIndex === 0}
+        isNextDisabled={currentQuestionIndex === mission.questions.length - 1}
+      />
+
       <Text style={styles.progressText}>
         Question {currentQuestionIndex + 1} of {mission.questions.length}
       </Text>
@@ -163,11 +158,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-  },
-  questionText: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginBottom: 15,
   },
   choiceButton: {
     padding: 15,

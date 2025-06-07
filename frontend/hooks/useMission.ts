@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
 import {
   fetchDailyMission,
   updateMissionProgressApi,
@@ -8,6 +7,7 @@ import {
   Question,
   MissionProgressUpdatePayload,
 } from '../services/missionApi';
+import { showAlert } from '../services/notificationService';
 
 export const useMission = (userId: string = 'test_user_123') => {
   const [mission, setMission] = useState<Mission | null>(null);
@@ -27,7 +27,7 @@ export const useMission = (userId: string = 'test_user_123') => {
     } catch (e: any) {
       const errorMessage = e.message || 'Failed to load mission.';
       setError(errorMessage);
-      Alert.alert('Error', errorMessage);
+      showAlert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +60,7 @@ export const useMission = (userId: string = 'test_user_123') => {
       setMission(updatedMission); // Update local state with response
     } catch (e: any) {
       console.error('Failed to save progress:', e);
-      Alert.alert('Save Error', 'Could not save your progress. Please try again.');
+      showAlert('Save Error', 'Could not save your progress. Please try again.');
     }
   }, [mission]);
 
@@ -79,7 +79,7 @@ export const useMission = (userId: string = 'test_user_123') => {
       saveProgress(nextIndex, newAnswers, isMissionComplete ? 'complete' : 'in_progress');
     } else {
       saveProgress(currentQuestionIndex, newAnswers, 'complete');
-      Alert.alert('Mission Complete!', 'You have answered all questions.');
+      showAlert('Mission Complete!', 'You have answered all questions.');
     }
   }, [mission, currentQuestionIndex, userAnswers, saveProgress]);
   

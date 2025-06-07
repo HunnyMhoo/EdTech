@@ -1,6 +1,11 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import FeedbackModal from './FeedbackModal';
+import { StyleSheet } from 'react-native';
+
+jest.mock('react-native/Libraries/StyleSheet/StyleSheet', () => ({
+    create: (styles: any) => styles,
+}));
 
 describe('FeedbackModal', () => {
   it('renders correctly when visible', () => {

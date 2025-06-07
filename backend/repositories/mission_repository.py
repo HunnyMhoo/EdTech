@@ -52,7 +52,6 @@ class MissionRepository:
         """
         Retrieves all missions before a given date that are not complete or archived.
         """
-        missions_to_update: List[DailyMissionDocument] = []
         # Convert the date to a datetime object at midnight for the query
         before_datetime = datetime.combine(before_date, datetime.min.time())
 
@@ -61,6 +60,10 @@ class MissionRepository:
             "status": {"$nin": [MissionStatus.COMPLETE.value, MissionStatus.ARCHIVED.value]}
         })
         
+        # The find method itself returns the cursor, it is not async.
+        # It is iterating the cursor that is async.
+        # The previous refactoring was incorrect. Reverting to async for.
+        missions_to_update: List[DailyMissionDocument] = []
         async for mission_doc in cursor:
             missions_to_update.append(DailyMissionDocument(**mission_doc))
             

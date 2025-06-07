@@ -1,5 +1,4 @@
-// Base URL for the API. Adjust if your backend runs elsewhere.
-const API_BASE_URL = 'http://localhost:8000'; // Assuming backend runs on port 8000
+import { API_BASE_URL } from '../config';
 
 // Interface for individual answers as stored in the backend
 export interface Answer {

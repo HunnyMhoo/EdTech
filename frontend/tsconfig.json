@@ -1,6 +1,9 @@
 {
   "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./types"],
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
     "types": ["jest", "node"],
     "baseUrl": ".",
     "paths": {

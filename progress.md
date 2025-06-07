@@ -1,5 +1,17 @@
 # Progress Log
 
+## 2024-08-01
+
+### Changes
+- **Frontend Architectural Refactoring:**
+  - **Improved Modularity:** Refactored the `MissionScreen` into smaller, reusable components (`QuestionDisplay`, `ChoiceList`, `MissionNav`). This simplifies the screen's logic, turning it into a "smart" container that manages state while delegating rendering to "dumb" presentational components.
+  - **Decoupled Business Logic from UI:** Abstracted all `Alert.alert` calls from the `useMission` hook into a dedicated `notificationService`. This decouples core application logic from specific UI framework components, improving testability and reusability.
+  - **Centralized Configuration:** Removed hardcoded API endpoints from the `missionApi` service. All environment-specific variables, such as `API_BASE_URL`, are now managed in a central `frontend/config.ts` file.
+  - **Standardized Test Architecture:**
+    - Relocated all test files to be co-located with their corresponding source files (e.g., `missionApi.ts` and `missionApi.test.ts` now reside in the same directory).
+    - Removed empty and redundant `__tests__` directories to create a flatter, more predictable testing structure.
+    - Added TypeScript type definitions for `jest-fetch-mock` to resolve linter errors and provide proper type support in the test environment.
+
 ## 2024-07-31
 
 ### Changes
@@ -21,4 +33,17 @@
   - Added `typescript` as a `devDependency` to `package.json` to ensure proper compilation with `ts-jest`.
 
 ### Bug Fixes
-- Resolved TypeScript compilation errors caused by conflicting configurations and a missing `typescript` dependency. 
+- Resolved TypeScript compilation errors caused by conflicting configurations and a missing `typescript` dependency.
+
+## Progress Report
+
+### Phase 1: Initial Setup and Core Logic (Completed)
+- [x] Set up FastAPI application structure.
+- [x] Implemented initial Question model and repository.
+- [x] Created `mission_service` with basic mission generation logic.
+
+### Phase 2: Mission Generation and Timezone Fix (Completed)
+- [x] Fixed mission generation timing by setting scheduler to UTC+7.
+- [x] Standardized timezone handling in `mission_service`.
+- [x] Added unit tests for mission service and daily reset job.
+- [x] Ensured all tests pass and validated the fix. 
