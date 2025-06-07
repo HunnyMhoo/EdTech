@@ -24,6 +24,8 @@ import {
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
 
+import Toast from 'react-native-toast-message';
+import { toastConfig } from './components/Feedback';
 import HomeScreen from './screens/HomeScreen'; // Adjust path if needed
 // If you have navigation or global providers, import them here too
 
@@ -82,6 +84,7 @@ function App(): React.JSX.Element {
         backgroundColor={backgroundStyle.backgroundColor}
       />
       <HomeScreen />
+      <Toast config={toastConfig} />
     </View>
   );
 }

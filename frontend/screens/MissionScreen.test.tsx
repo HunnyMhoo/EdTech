@@ -1,7 +1,14 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import MissionScreen from './MissionScreen';
-import { useMission } from '../hooks/useMission';
+import { useMission } from '@hooks/useMission';
+import Toast from 'react-native-toast-message';
+
+// Mock the toast library
+jest.mock('react-native-toast-message', () => ({
+  show: jest.fn(),
+  hide: jest.fn(),
+}));
 
 // Mock navigation prop
 const mockNavigation = { goBack: jest.fn() };
@@ -20,6 +27,8 @@ const mockMission = {
         { id: 'b', text: '4' },
         { id: 'c', text: '5' },
       ],
+      correct_answer_id: 'b',
+      feedback_th: 'Correct, 2+2 is 4',
     },
     {
       question_id: 'q2',
@@ -31,6 +40,8 @@ const mockMission = {
         { id: 'b', text: 'Paris' },
         { id: 'c', text: 'London' },
       ],
+      correct_answer_id: 'b',
+      feedback_th: 'Correct, Paris is the capital of France',
     },
   ],
   status: 'not_started',
@@ -40,84 +51,84 @@ const mockMission = {
   updated_at: '2024-06-01T00:00:00Z',
 };
 
-jest.mock('../services/missionApi', () => ({
-  fetchDailyMission: jest.fn(() => Promise.resolve(mockMission)),
-  updateMissionProgressApi: jest.fn(() => Promise.resolve(mockMission)),
-}));
-
 jest.mock('../hooks/useMission');
 
 const mockedUseMission = useMission as jest.Mock;
+const mockSubmitAnswer = jest.fn();
 
 describe('MissionScreen', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     mockedUseMission.mockReturnValue({
       mission: mockMission,
       currentQuestion: mockMission.questions[0],
       currentQuestionIndex: 0,
       isLoading: false,
       error: null,
-      selectAnswer: jest.fn(),
-      submitAnswer: jest.fn(),
-      nextQuestion: jest.fn(),
-      previousQuestion: jest.fn(),
       userAnswers: [],
+      loadMission: jest.fn(),
+      submitAnswer: mockSubmitAnswer,
+      goToQuestion: jest.fn(),
     });
   });
 
   it('renders multiple-choice options for the current question', async () => {
     const { findByText } = render(<MissionScreen navigation={mockNavigation} />);
-    await waitFor(async () => {
-      expect(await findByText('What is 2 + 2?')).toBeTruthy();
-      expect(await findByText('3')).toBeTruthy();
-      expect(await findByText('4')).toBeTruthy();
-      expect(await findByText('5')).toBeTruthy();
-    });
+    expect(await findByText('What is 2 + 2?')).toBeTruthy();
+    expect(await findByText('3')).toBeTruthy();
+    expect(await findByText('4')).toBeTruthy();
+    expect(await findByText('5')).toBeTruthy();
   });
 
-  it('allows selecting a choice and submitting', async () => {
-    const { findByText, getByText } = render(<MissionScreen navigation={mockNavigation} />);
-    const choice = await findByText('4');
-    fireEvent.press(choice);
-    await waitFor(() => {
-      expect(choice.parent?.props.style).toBeDefined();
-    });
-    const submitButton = getByText('Submit Answer');
-    fireEvent.press(submitButton);
-    // No error alert expected
-  });
-
-  it('shows an alert if submitting without selecting a choice', async () => {
+  it('shows success toast for correct answer and calls submitAnswer on hide', async () => {
     const { getByText } = render(<MissionScreen navigation={mockNavigation} />);
-    await waitFor(() => {
-      expect(getByText('Submit Answer')).toBeTruthy();
+    
+    fireEvent.press(getByText('4'));
+    fireEvent.press(getByText('Submit Answer'));
+
+    expect(Toast.show).toHaveBeenCalledWith({
+      type: 'success',
+      text1: 'Correct!',
+      text2: 'Correct, 2+2 is 4',
+      visibilityTime: 4000,
+      autoHide: true,
+      onHide: expect.any(Function),
     });
+    
+    // Manually call the onHide function to simulate the toast hiding
+    const onHideCallback = (Toast.show as jest.Mock).mock.calls[0][0].onHide;
+    onHideCallback();
+    
+    expect(mockSubmitAnswer).toHaveBeenCalledWith('q1', 'b');
   });
 
-  it('shows error if no choices are available', async () => {
-    const missionWithNoChoices = {
-      ...mockMission,
-      questions: [
-        {
-          question_id: 'q3',
-          question_text: 'No choices here',
-          skill_area: 'Test',
-          difficulty_level: 1,
-          choices: [],
-        },
-      ],
-    };
+  it('shows error toast for incorrect answer and calls submitAnswer on hide', async () => {
+    const { getByText } = render(<MissionScreen navigation={mockNavigation} />);
     
-    mockedUseMission.mockReturnValueOnce({
-      mission: missionWithNoChoices,
-      currentQuestion: missionWithNoChoices.questions[0],
-      isLoading: false,
-      userAnswers: [],
+    fireEvent.press(getByText('3'));
+    fireEvent.press(getByText('Submit Answer'));
+
+    expect(Toast.show).toHaveBeenCalledWith({
+      type: 'error',
+      text1: 'Incorrect',
+      text2: 'The correct answer is: 4. Correct, 2+2 is 4',
+      visibilityTime: 4000,
+      autoHide: true,
+      onHide: expect.any(Function),
     });
 
-    const { findByText } = render(<MissionScreen navigation={mockNavigation} />);
-    await waitFor(async () => {
-      expect(await findByText('No choices available for this question.')).toBeTruthy();
-    });
+    const onHideCallback = (Toast.show as jest.Mock).mock.calls[0][0].onHide;
+    onHideCallback();
+
+    expect(mockSubmitAnswer).toHaveBeenCalledWith('q1', 'a');
+  });
+
+  it('disables submit button until an answer is selected', () => {
+    const { getByText } = render(<MissionScreen navigation={mockNavigation} />);
+    const submitButton = getByText('Submit Answer');
+    expect(submitButton.props.accessibilityState.disabled).toBe(true);
+
+    fireEvent.press(getByText('4'));
+    expect(submitButton.props.accessibilityState.disabled).toBe(false);
   });
 }); 

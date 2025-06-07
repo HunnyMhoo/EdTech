@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, StyleSheet, ScrollView, Alert } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useMission } from '@hooks/useMission';
-import FeedbackModal from '@components/FeedbackModal';
 import QuestionDisplay from '@components/QuestionDisplay';
 import ChoiceList from '@components/ChoiceList';
 import MissionNav from '@components/MissionNav';
@@ -30,8 +30,6 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
   } = useMission();
 
   const [selectedChoiceId, setSelectedChoiceId] = useState<string>('');
-  const [isFeedbackModalVisible, setFeedbackModalVisible] = useState(false);
-  const [feedbackData, setFeedbackData] = useState({ isCorrect: false, correctAnswer: '', explanation: '' });
 
   useEffect(() => {
     // When question changes, check for a previous answer and set the selected choice
@@ -50,19 +48,20 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
     const isCorrect = selectedChoiceId === currentQuestion.correct_answer_id;
     const correctAnswerChoice = currentQuestion.choices?.find(c => c.id === currentQuestion.correct_answer_id);
 
-    setFeedbackData({
-      isCorrect,
-      correctAnswer: correctAnswerChoice?.text || 'N/A',
-      explanation: currentQuestion.feedback_th,
+    Toast.show({
+      type: isCorrect ? 'success' : 'error',
+      text1: isCorrect ? 'Correct!' : 'Incorrect',
+      text2: isCorrect 
+        ? currentQuestion.feedback_th
+        : `The correct answer is: ${correctAnswerChoice?.text || 'N/A'}. ${currentQuestion.feedback_th}`,
+      visibilityTime: 4000,
+      autoHide: true,
+      onHide: () => {
+        if (currentQuestion && selectedChoiceId) {
+          submitAnswer(currentQuestion.question_id, selectedChoiceId);
+        }
+      }
     });
-    setFeedbackModalVisible(true);
-  };
-
-  const handleModalDismiss = () => {
-    setFeedbackModalVisible(false);
-    if (currentQuestion && selectedChoiceId) {
-      submitAnswer(currentQuestion.question_id, selectedChoiceId);
-    }
   };
 
   if (isLoading) {
@@ -81,14 +80,6 @@ const MissionScreen: React.FC<MissionScreenProps> = ({ navigation }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <FeedbackModal
-        isVisible={isFeedbackModalVisible}
-        isCorrect={feedbackData.isCorrect}
-        correctAnswer={feedbackData.correctAnswer}
-        explanation={feedbackData.explanation}
-        onDismiss={handleModalDismiss}
-      />
-
       <Text style={styles.title}>Daily Mission</Text>
       <Text style={styles.date}>Date: {new Date(mission.date).toLocaleDateString()}</Text>
       <Text style={styles.status}>Status: {mission.status}</Text>

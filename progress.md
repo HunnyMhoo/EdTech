@@ -1,5 +1,18 @@
 # Progress Log
 
+## 2024-08-02
+
+### Changes
+- **Frontend Project Structure Enhancement:**
+  - **Removed Redundancy:** Eliminated the unnecessary nested `frontend/frontend` directory, which contained a duplicate `__mocks__` folder. This declutters the project and removes potential confusion.
+  - **Established Scalable Foundation:** Created a more organized and conventional folder structure by adding the following new directories to `frontend/`:
+    - `assets`: For shared images, fonts, and icons.
+    - `navigation`: For centralizing navigation logic (navigators, routes).
+    - `state`: For global state management (e.g., Redux, Zustand, Context).
+    - `styles`: For global stylesheets, themes, and design tokens.
+    - `utils`: For reusable helper functions.
+    - `constants`: For application-wide constants.
+
 ## 2024-08-01
 
 ### Changes
