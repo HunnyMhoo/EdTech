@@ -86,13 +86,58 @@ async def test_get_todays_mission_for_user_generates_new(mock_mission_repo, mock
 async def test_update_mission_progress_success(mock_mission_repo):
     user_id = "progress_user"
     today = datetime.now(TARGET_TIMEZONE).date()
-    mission_doc = DailyMissionDocument(user_id=user_id, date=today, questions=[], status=MissionStatus.IN_PROGRESS, current_question_index=0)
+    # Mission has 5 questions, but only 1 answer is provided.
+    questions = [Question(question_id=f"q{i}", question_text=f"Q{i}?", skill_area="math", difficulty_level=1, choices=[], correct_answer_id="c1", feedback_th="fb") for i in range(5)]
+    mission_doc = DailyMissionDocument(user_id=user_id, date=today, questions=questions, status=MissionStatus.IN_PROGRESS, current_question_index=0)
     mock_mission_repo.find_mission.return_value = mission_doc
 
-    updated_mission = await update_mission_progress(user_id, 1, [{"answer": "a"}], mock_mission_repo, MissionStatus.IN_PROGRESS)
+    # Provide one answer
+    answers = [{"question_id": "q0", "answer": "a", "feedback_shown": True}]
+    updated_mission = await update_mission_progress(user_id, 1, answers, mock_mission_repo)
 
     assert updated_mission is not None
     assert updated_mission.current_question_index == 1
+    # The mission is still IN_PROGRESS because not all questions are answered.
+    assert updated_mission.status == MissionStatus.IN_PROGRESS
+    mock_mission_repo.save_mission.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_update_mission_progress_completion(mock_mission_repo):
+    user_id = "completion_user"
+    today = datetime.now(TARGET_TIMEZONE).date()
+    questions = [Question(question_id=f"q{i}", question_text=f"Q{i}?", skill_area="math", difficulty_level=1, choices=[], correct_answer_id="c1", feedback_th="fb") for i in range(2)]
+    mission_doc = DailyMissionDocument(user_id=user_id, date=today, questions=questions, status=MissionStatus.IN_PROGRESS)
+    mock_mission_repo.find_mission.return_value = mission_doc
+
+    # Provide answers for all questions with feedback shown
+    answers = [
+        {"question_id": "q0", "answer": "a", "feedback_shown": True},
+        {"question_id": "q1", "answer": "b", "feedback_shown": True},
+    ]
+    updated_mission = await update_mission_progress(user_id, 2, answers, mock_mission_repo)
+
+    assert updated_mission is not None
+    # The mission should now be marked as COMPLETED.
+    assert updated_mission.status == MissionStatus.COMPLETE
+    mock_mission_repo.save_mission.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_update_mission_progress_all_answered_no_feedback(mock_mission_repo):
+    user_id = "feedback_user"
+    today = datetime.now(TARGET_TIMEZONE).date()
+    questions = [Question(question_id=f"q{i}", question_text=f"Q{i}?", skill_area="math", difficulty_level=1, choices=[], correct_answer_id="c1", feedback_th="fb") for i in range(2)]
+    mission_doc = DailyMissionDocument(user_id=user_id, date=today, questions=questions, status=MissionStatus.IN_PROGRESS)
+    mock_mission_repo.find_mission.return_value = mission_doc
+
+    # All questions answered, but one is missing feedback_shown = True
+    answers = [
+        {"question_id": "q0", "answer": "a", "feedback_shown": True},
+        {"question_id": "q1", "answer": "b", "feedback_shown": False}, # Feedback not shown
+    ]
+    updated_mission = await update_mission_progress(user_id, 2, answers, mock_mission_repo)
+
+    assert updated_mission is not None
+    # Status should remain IN_PROGRESS because not all feedback has been viewed.
     assert updated_mission.status == MissionStatus.IN_PROGRESS
     mock_mission_repo.save_mission.assert_called_once()
 

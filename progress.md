@@ -1,5 +1,19 @@
 # Progress Log
 
+## 2024-08-03
+
+### Changes
+- **Refined Mission Completion Logic:**
+  - Implemented a stricter and more robust definition of mission completion, as defined in the user story. A mission is now only marked as `complete` after a user has both answered all questions and viewed the feedback for every answer.
+  - **Refactored `mission_progress_service`:**
+    - Created a new private helper function, `_is_mission_complete`, to encapsulate the business logic for checking completion status. This improves modularity and clarifies the purpose of the `update_mission_progress` function.
+    - The `update_mission_progress` function now automatically sets the mission status to `complete` based on the outcome of the new helper function, removing the need for the frontend to manage this state transition explicitly.
+  - **Enhanced Unit Test Coverage:**
+    - Added comprehensive unit tests in `test_mission_service.py` to validate the new completion logic under various scenarios, including:
+      - A mission becoming `complete` only after all conditions are met.
+      - A mission remaining `in_progress` if a user has answered all questions but not viewed all feedback.
+    - Updated existing tests to align with the new, more robust implementation.
+
 ## 2024-08-02
 
 ### Changes
