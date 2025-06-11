@@ -10,39 +10,48 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The EdTech platform implements a daily mission system with the following core business components:
+The project implements an educational mission system with three core business domains:
 
-### Mission Generation Engine (Importance: 95)
-- Located in `backend/services/mission_service.py`
-- Generates personalized daily sets of 5 unique questions per user
-- Handles mission state transitions and archiving based on UTC+7 timezone
-- Prevents duplicate missions and handles insufficient question scenarios
+### Mission Generation & Management (Importance: 95)
+- Daily mission generation creates 5 unique questions per user
+- Mission lifecycle transitions through states: NOT_STARTED → IN_PROGRESS → COMPLETE/ARCHIVED
+- Timezone-specific (UTC+7) mission generation and archiving for Thai students
+- Questions are randomly selected from a pre-loaded question pool
 
-### Mission Progress Management (Importance: 90) 
-- Tracks user progress through `frontend/hooks/useMission.ts`
-- Maintains mission states: not_started, in_progress, completed
-- Saves partial progress to allow mission resumption
-- Archives incomplete missions during daily reset at 4:00 AM UTC
+### Mission Progress Tracking (Importance: 90)
+- Tracks user progress through questions and answers
+- Mission completion requires both answering questions and viewing feedback
+- Automatic status transitions based on user interactions
+- Previous day's incomplete missions are archived during daily reset
 
-### Question Management System (Importance: 85)
-- Question repository initialization and seeding from CSV
-- In-memory caching for rapid question access
-- Validation of question uniqueness within missions
-- Custom data models for structured question content
+### User Session Management (Importance: 85) 
+- Supports both authenticated and guest user experiences
+- Guest sessions use predefined userIDs while maintaining progress tracking
+- Mission access and progress updates are tied to user sessions
 
-### User Feedback System (Importance: 80)
-- Immediate feedback after answer submission
-- Shows correct/incorrect status with explanations
-- Tracks question-level progress within missions
-- Updates mission status based on completion criteria
+Key Integration Points:
 
-### Mission API Layer (Importance: 75)
-- Daily mission fetching and progress updates
-- Timezone-aware mission delivery (UTC+7)
-- Standardized response formats for mission data
-- Error handling for mission generation failures
+1. Mission Data Flow
+```
+Question Repository → Mission Generation → Mission Progress → User Interface
+```
 
-The system organizes these components to deliver a cohesive educational experience through daily missions, with strong emphasis on progress tracking and immediate feedback to support learning objectives.
+2. Status Management Chain
+```
+User Action → Progress Update → Status Check → Automatic Transition
+```
+
+3. Daily Reset Process
+```
+Timezone Check → Incomplete Mission Detection → Archive Operation
+```
+
+Core Business Files:
+- `backend/services/mission_generation_service.py`: Mission creation logic
+- `backend/services/mission_progress_service.py`: Progress tracking and status updates
+- `backend/services/mission_lifecycle_service.py`: Mission state management
+- `frontend/src/features/mission/hooks/useMission.ts`: Mission interaction handling
+- `backend/jobs/daily_reset.py`: Automated mission archiving
 
 $END$
 

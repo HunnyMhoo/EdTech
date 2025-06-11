@@ -39,10 +39,15 @@ This document describes the key components of the EdTech Platform, grouped by th
 *   **Key Functionality:** Ensures data consistency and provides clear schemas for API contracts, database objects, and service layer interactions.
 
 ### 5. Question Data (`backend/data/gat_questions.csv`)
-*   **Description:** A CSV file serving as the current source for questions used in daily missions.
+*   **Description:** A CSV file serving as the current source for questions used in daily missions. Contains complete multiple choice question data with proper structure.
 *   **Location:** [`backend/data/gat_questions.csv`](../backend/data/gat_questions.csv)
-*   **Dependencies:** None directly; accessed by `MissionService`.
-*   **Key Functionality:** Provides a list of question IDs and other question-related data.
+*   **Dependencies:** None directly; accessed by `QuestionRepository`.
+*   **Key Functionality:** 
+    *   Provides structured question data including question text, skill areas, difficulty levels
+    *   Contains multiple choice options (choice_1_id through choice_4_id with corresponding text)
+    *   Includes correct_answer_id field mapping to the correct choice
+    *   Supports Thai language feedback for each question
+    *   Currently contains 10 GAT-style questions covering various cognitive skills
 
 ### 6. Integration Tests (`backend/tests/integration/test_missions_api.py`)
 *   **Description:** Contains integration tests for the Missions API endpoints.

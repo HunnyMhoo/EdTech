@@ -1,51 +1,69 @@
 ---
-description: Documentation of the unique business logic for generating personalized daily missions with 5 questions per user
-globs: **/mission_service.py,**/mission_repository.py,**/question_repository.py,**/daily_mission.py
+description: Manages unique mission generation, selection, and lifecycle logic for daily educational challenges
+globs: **/mission_*.py,**/mission_*.ts,**/repositories/*_repository.py
 alwaysApply: false
 ---
 
 
 # mission-generation-algorithm
 
-The mission generation algorithm implements core business logic for creating personalized daily missions:
+### Core Mission Generation Logic
+- Enforces daily mission generation with exactly 5 unique questions per user
+- Validates question pool availability before generation
+- Prevents duplicate missions for same user/date
+- Maintains mission state transitions: NOT_STARTED -> IN_PROGRESS -> COMPLETE/ARCHIVED
 
-### Mission Creation Rules
-- Generates exactly 5 unique questions per daily mission per user
-- Questions are selected from a pre-populated question repository 
-- Same user cannot receive duplicate missions on the same day
-- Missions reset at 4:00 AM UTC+7 (Thailand timezone)
+### Mission Lifecycle Management
+- Archives incomplete missions at UTC+7 timezone boundary
+- Auto-transitions mission states based on user progress and feedback views
+- Handles mission regeneration when prior missions expire
 
-### Question Selection Logic
-1. Checks question repository cache for available questions
-2. Filters out questions already used in user's previous missions
-3. Randomly selects 5 questions from remaining pool
-4. Raises MissionGenerationError if insufficient unique questions available
-5. Associates selected questions with user's daily mission
+### Question Selection Algorithm
+**File:** `backend/services/mission_generation_service.py`
+```
+Importance Score: 95
+- Random selection from qualified question pool
+- Enforces uniqueness within each mission
+- Validates minimum question availability (5)
+- Persists mission with NOT_STARTED status
+```
 
-### Mission Status Management 
-- Status transitions:
-  - not_started -> in_progress (on first answer)
-  - in_progress -> completed (all questions answered)
-  - in_progress -> archived (at daily reset if incomplete)
+### Mission Progress Tracking
+**File:** `backend/services/mission_progress_service.py`
+```
+Importance Score: 85
+- Tracks completion state per question
+- Requires feedback view for completion
+- Auto-updates mission status based on progress
+- Manages state transitions for partial completion
+```
 
-### Error Handling
-Custom domain exceptions:
-- MissionGenerationError: General generation failures
-- NoQuestionsAvailableError: Insufficient unique questions
-- MissionAlreadyExistsError: Duplicate mission detected
+### Timezone-Specific Operations
+**File:** `backend/services/utils.py`
+```
+Importance Score: 75
+- Synchronizes mission generation with UTC+7
+- Handles date boundaries for Thai student audience
+- Coordinates mission archival timing
+```
 
-### Archival Process
-- Daily job archives incomplete missions from previous day
-- Uses UTC+7 timezone for determining mission expiry
-- Maintains mission history for user progress tracking
+### Question Repository Management
+**File:** `backend/repositories/question_repository.py`
+```
+Importance Score: 70
+- Initializes question pool from CSV source
+- Maintains in-memory question cache
+- Provides atomic question retrieval operations
+```
 
-Relevant Files:
-- backend/services/mission_service.py
-- backend/models/daily_mission.py
-- backend/repositories/question_repository.py
-- backend/jobs/daily_reset.py
-
-Importance Score: 95 - Core business logic for main product feature
+Key Features:
+- Single mission per user per day enforcement
+- Strict 5-question requirement
+- Timezone-aligned operations (UTC+7)
+- Question uniqueness guarantees
+- Automated mission lifecycle management
+- Progress-based state transitions
+- Feedback view requirement for completion
 
 $END$
 

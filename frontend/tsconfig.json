@@ -1,29 +1,9 @@
 {
   "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
-    "typeRoots": ["./node_modules/@types", "./types"],
-    "allowJs": true,
-    "allowSyntheticDefaultImports": true,
-    "types": ["jest", "node"],
     "baseUrl": ".",
     "paths": {
-      "@components/*": ["components/*"],
-      "@screens/*": ["screens/*"],
-      "@services/*": ["services/*"],
-      "@hooks/*": ["hooks/*"],
-      "@config/*": ["config/*"],
-      "@assets/*": ["assets/*"],
-      "@navigation/*": ["navigation/*"],
-      "@utils/*": ["utils/*"]
+      "@/*": ["src/*"]
     }
-  },
-  "include": [
-    "**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "babel.config.js",
-    "metro.config.js",
-    "jest.config.js"
-  ]
+  }
 }

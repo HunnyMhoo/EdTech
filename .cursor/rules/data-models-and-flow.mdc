@@ -1,77 +1,82 @@
 ---
-description: Defines data models, API structures, and frontend-backend data flow for daily missions and questions
-globs: **/*mission*.{ts,js,py},**/*question*.{ts,js,py},**/models/*.{ts,js,py},**/services/*.{ts,js,py}
+description: Specification for data models, API structures, and data flow between frontend/backend with timezone handling
+globs: backend/services/*,backend/repositories/*,frontend/src/features/*/api/*,frontend/src/state/*,backend/models/*
 alwaysApply: false
 ---
 
 
 # data-models-and-flow
 
-### Core Mission Data Model
-Importance Score: 95
+## Core Data Models
 
-The daily mission model represents the core educational content structure:
+### Mission Model (Importance: 95)
+- Located in `backend/models/daily_mission.py`
+- Represents daily user missions with:
+  - 5 unique questions per mission
+  - Status tracking (NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED)
+  - User answers and progress tracking
+  - Timezone-aware date handling (UTC+7)
+  - Question feedback viewing status
 
+### Question Model (Importance: 90)
+- Located in `backend/repositories/question_repository.py`
+- Maintains question pool with:
+  - Question text and choices
+  - Correct answer identification
+  - Feedback content
+  - In-memory caching for performance
+
+## Data Flow
+
+### Mission Generation Flow (Importance: 85)
+- Service: `backend/services/mission_generation_service.py`
+- Flow:
+  1. Validates no existing mission for user/day
+  2. Selects 5 random unique questions
+  3. Creates mission with NOT_STARTED status
+  4. Associates questions with mission
+
+### Mission Progress Flow (Importance: 80)
+- Service: `backend/services/mission_progress_service.py`
+- Flow:
+  1. Updates user answer submissions
+  2. Tracks feedback viewing status
+  3. Automatically transitions states based on completion criteria
+  4. Syncs progress between frontend/backend
+
+### Timezone Management (Importance: 75)
+- Service: `backend/services/utils.py`
+- Handles:
+  - Mission date calculations in UTC+7
+  - Mission archiving timing
+  - Daily reset scheduling
+  - Date-based mission availability
+
+### API Response Structures
+
+#### Mission API (Importance: 85)
 ```typescript
-interface DailyMission {
-  id: string
-  userId: string 
-  status: MissionStatus
-  questions: Question[]
-  answers: UserAnswer[]
-  createdAt: Date
-  completedAt?: Date
+interface Mission {
+  id: string;
+  userId: string;
+  date: string; // UTC+7 format
+  questions: Question[];
+  status: MissionStatus;
+  currentQuestionIndex: number;
+  answers: Answer[];
 }
 ```
 
-Key business rules:
-- Each mission contains exactly 5 unique questions
-- Missions reset daily at 4:00 AM UTC+7 (Thailand timezone)
-- Statuses transition from not_started -> in_progress -> completed
-- Incomplete missions are archived during daily reset
-
-### API Response Structure 
-Importance Score: 85
-
-Mission-specific API responses follow a standardized format:
-
+#### Question API (Importance: 80)
 ```typescript
-interface MissionResponse {
-  mission: DailyMission
-  feedback?: {
-    isCorrect: boolean
-    explanation: string
-  }
-  errors?: string[]
+interface Question {
+  id: string;
+  text: string;
+  choices: Choice[];
+  correctAnswerId: string;
+  feedback: string;
 }
 ```
-
-### Data Flow
-Importance Score: 90
-
-1. Mission Generation
-- Backend generates daily missions at 4:00 AM UTC+7
-- Questions are randomly selected based on user's progress
-- Duplicate questions are prevented within 7-day window
-
-2. Mission Retrieval
-- Frontend fetches mission via `fetchDailyMission` 
-- Backend validates mission freshness against UTC+7
-- Expired missions trigger new generation
-
-3. Progress Updates
-- Frontend submits answers via `updateMissionProgressApi`
-- Backend validates answers and updates mission status
-- Response includes feedback and explanation
-
-### Timezone Handling
-Importance Score: 80
-
-The system standardizes on UTC+7 (Thailand) for all mission-related operations:
-- Mission generation and reset timing
-- Date comparisons for mission freshness
-- Archival of incomplete missions
-- Frontend display of mission availability
 
 $END$
 

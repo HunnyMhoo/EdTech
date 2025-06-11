@@ -1,58 +1,87 @@
 ---
-description: Used for defining and documenting API contracts, endpoints, and integration patterns between frontend and backend services
-globs: **/api/**,**/services/**,**/*Api.ts,**/routes/**
+description: Defines API contract and interaction patterns between frontend and backend services for mission-based learning system
+globs: backend/routes/*,frontend/src/features/*/api/*,frontend/src/services/*
 alwaysApply: false
 ---
 
 
 # api-integration
 
-The API integration layer implements the following key business contracts:
+### Core API Endpoints
 
-### Mission API Contract
-- **Endpoint**: `/api/missions/daily`
-- **Purpose**: Retrieves daily mission content for users
-- **File**: `frontend/services/missionApi.ts`
-- **Business Logic**:
-  - Fetches personalized 5-question mission based on user ID
-  - Handles mission state transitions (not_started -> in_progress -> completed)
-  - Returns mission progress, current question position, and completion status
-  - Importance Score: 95
+#### Mission Management Endpoints
+- `GET /missions/daily/{user_id}`
+  - Retrieves or generates daily mission for user
+  - Returns 5 unique questions and current mission status
+  - Handles timezone-specific (UTC+7) date logic
+  - Importance: 95
 
-### Mission Progress API
-- **Endpoint**: `/api/missions/{id}/progress` 
-- **Purpose**: Updates user progress through daily missions
-- **File**: `backend/routes/missions.py`
-- **Business Logic**:
-  - Validates answer submissions against correct responses
-  - Tracks completion percentage and question navigation
-  - Archives missions at 4AM UTC+7 timezone
-  - Importance Score: 85
+- `PUT /missions/{mission_id}/progress` 
+  - Updates mission progress including:
+    - Current question index
+    - User answers
+    - Mission completion status
+  - Automatically transitions states (not_started -> in_progress -> complete)
+  - Importance: 90
 
-### Question API Contract
-- **Endpoint**: `/api/questions/{id}`
-- **Purpose**: Retrieves individual question content
-- **File**: `backend/routes/questions.py`
-- **Business Logic**: 
-  - Returns question text, choices, correct answer and explanation
-  - Validates that questions belong to user's current mission
-  - Importance Score: 75
+#### Question Management Endpoints
+- `GET /questions/{question_id}`
+  - Retrieves question details including choices and feedback
+  - Used for progressive question loading during mission
+  - Importance: 85
 
-### Error Response Format
-```json
-{
-  "status": "error",
-  "code": "MISSION_NOT_FOUND",
-  "message": "No active mission found for user"
+### API Response Models
+
+#### Mission Response Model
+```typescript
+interface Mission {
+  id: string;
+  userId: string;
+  status: 'not_started' | 'in_progress' | 'complete' | 'archived';
+  questions: Question[];
+  currentQuestionIndex: number;
+  answers: Answer[];
+  date: string; // UTC+7 midnight timestamp
 }
 ```
+Importance: 90
 
-### Custom Domain Rules
-- Missions reset daily at 4AM UTC+7 (Bangkok timezone)
-- Maximum 5 questions per daily mission
-- Questions cannot be repeated within same mission
-- Mission progress must be saved before navigating questions
-- Importance Score: 90
+#### Progress Update Model
+```typescript
+interface MissionProgress {
+  currentQuestionIndex: number;
+  answer: {
+    questionId: string;
+    selectedChoiceId: string;
+  };
+}
+```
+Importance: 85
+
+### Integration Patterns
+
+#### Mission State Management
+- Frontend maintains mission state using `useMission` hook
+- Syncs with backend on:
+  - Initial load
+  - Answer submission
+  - Question navigation
+  - Mission completion
+- Importance: 85
+
+#### Error Handling
+- Standard error responses include:
+  - 404: Mission/Question not found
+  - 409: Duplicate mission creation
+  - 422: Invalid mission progress update
+- Frontend displays user-friendly error messages via notification service
+- Importance: 75
+
+#### Timezone Handling
+- All API requests/responses use UTC+7 timezone
+- Date synchronization ensures consistent mission generation
+- Mission archival based on local timezone
+- Importance: 80
 
 $END$
 

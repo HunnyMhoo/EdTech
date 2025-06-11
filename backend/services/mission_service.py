@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 import asyncio
 from fastapi import Depends
+import random
 
 from backend.models.daily_mission import DailyMissionDocument, MissionStatus, Question
 from backend.repositories.question_repository import QuestionRepository
@@ -34,6 +35,27 @@ class MissionAlreadyExistsError(MissionGenerationError):
 # This section has been replaced by the MissionRepository.
 # The in-memory list `_mock_db_missions` and functions `_find_mission_in_db`,
 # `_save_mission_to_db`, and `_fetch_mission_from_db` have been removed.
+
+def _is_mission_complete(mission: DailyMissionDocument) -> bool:
+    """
+    Checks if a mission is complete.
+
+    A mission is considered complete if all questions have been answered
+    and the user has viewed the feedback for every answer.
+
+    Args:
+        mission: The daily mission document.
+
+    Returns:
+        True if the mission is complete, False otherwise.
+    """
+    # Condition 1: The number of answers must equal the number of questions.
+    if len(mission.answers) != len(mission.questions):
+        return False
+
+    # Condition 2: Every answer must have the 'feedback_shown' flag set to True.
+    # This ensures the user has seen the outcome of their answer.
+    return all(answer.get("feedback_shown", False) for answer in mission.answers)
 
 async def get_question_details_by_id(
     question_id: str,
