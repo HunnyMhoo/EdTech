@@ -9,6 +9,9 @@ The EdTech Platform aims to enhance the learning experience by providing daily e
 *   **Daily Mission Generation**: Generates 5 unique daily questions per user.
 *   **User-Specific Mission Retrieval**: Delivers missions through an API endpoint.
 *   **Mission Progress Tracking**: Allows users to save and resume mission progress.
+*   **Free Practice Mode**: Independent practice sessions with topic-based question selection (1-20 questions).
+*   **Instant Feedback System**: Immediate answer validation with explanations and retry functionality.
+*   **Tab-Based Navigation**: Seamless switching between Daily Mission and Free Practice modes.
 *   **Timezone-Specific Content**: Missions are aligned with UTC+7 for the target audience.
 *   **Automated Daily Reset**: Archives old, incomplete missions daily.
 *   **Frontend Mission Display**: Presents missions to users for interaction.
@@ -31,15 +34,20 @@ EdTech/
 ├── backend/            # Python FastAPI backend
 │   ├── data/           # Data files (e.g., question CSVs)
 │   ├── jobs/           # Background job definitions (e.g., daily reset)
-│   ├── models/         # Pydantic data models
-│   ├── routes/         # API route definitions
+│   ├── models/         # Pydantic data models (missions, practice sessions)
+│   ├── repositories/   # Data access layer
+│   ├── routes/         # API route definitions (missions, practice, questions)
 │   ├── services/       # Business logic services
 │   ├── tests/          # Backend tests (unit, integration)
 │   └── main.py         # FastAPI application entry point
 ├── frontend/           # React Native frontend
-│   ├── screens/        # React Native screen components
-│   ├── services/       # Frontend API services and type definitions
-│   └── __tests__/      # Frontend tests (currently for services)
+│   ├── src/
+│   │   ├── features/   # Feature-based organization
+│   │   │   ├── mission/    # Daily mission components and logic
+│   │   │   ├── practice/   # Free practice mode components and logic
+│   │   │   └── auth/       # Authentication components
+│   │   └── shared/     # Shared components and utilities
+│   └── __tests__/      # Frontend tests
 ├── Docs/               # Project documentation
 ├── .giga/              # Giga AI related files
 ├── .cursorrules        # Cursor rules

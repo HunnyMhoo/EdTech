@@ -61,6 +61,9 @@ async def shutdown_event():
 # Tags are useful for organizing endpoints in the OpenAPI documentation
 app.include_router(missions.router, prefix="/api", tags=["Missions"])
 app.include_router(questions.router, prefix="/api", tags=["Questions"])
+# Include practice router for free practice mode
+from backend.routes import practice
+app.include_router(practice.router, prefix="/api", tags=["Practice"])
 # Include other routers here if you have them
 # app.include_router(another_router.router, prefix="/api/v1/another", tags=["Another Feature"])
 

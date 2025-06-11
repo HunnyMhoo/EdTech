@@ -10,6 +10,7 @@ from fastapi import Depends
 
 from backend.repositories.question_repository import QuestionRepository
 from backend.repositories.mission_repository import MissionRepository
+from backend.repositories.practice_repository import PracticeRepository
 from backend.database import db_manager
 
 
@@ -35,4 +36,14 @@ def get_mission_repository(db: AsyncIOMotorDatabase = Depends(get_database)) -> 
     Initializes the repository with the database connection, providing
     an interface for mission data operations.
     """
-    return MissionRepository(db) 
+    return MissionRepository(db)
+
+
+def get_practice_repository(db: AsyncIOMotorDatabase = Depends(get_database)) -> PracticeRepository:
+    """
+    Dependency provider for the PracticeRepository.
+
+    Initializes the repository with the database connection, providing
+    an interface for practice session data operations.
+    """
+    return PracticeRepository(db) 

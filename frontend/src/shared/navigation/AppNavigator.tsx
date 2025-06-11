@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../../features/auth/state/AuthContext';
 import WelcomeScreen from '../../features/auth/screens/WelcomeScreen';
 import LoginScreen from '../../features/auth/screens/LoginScreen';
-import MissionScreen from '../../features/mission/screens/MissionScreen';
+import TabNavigator from './TabNavigator';
 import { ActivityIndicator, View } from 'react-native';
 
 const Stack = createNativeStackNavigator();
@@ -27,7 +27,7 @@ const AppNavigator: React.FC = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated || isGuest ? (
-          <Stack.Screen name="Mission" component={MissionScreen} />
+          <Stack.Screen name="Main" component={TabNavigator} />
         ) : (
           <>
             <Stack.Screen name="Welcome" component={WelcomeScreen} />

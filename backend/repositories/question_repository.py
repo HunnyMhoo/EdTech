@@ -114,6 +114,50 @@ class QuestionRepository:
         await self._initialize_if_needed()
         return self._questions_cache.get(question_id)
 
+    async def get_questions_by_topic(self, topic: str, limit: Optional[int] = None) -> List[Question]:
+        """
+        Retrieves questions filtered by topic (skill_area).
+        """
+        await self._initialize_if_needed()
+        
+        # Filter questions by topic from cache
+        topic_questions = [
+            question for question in self._questions_cache.values()
+            if question.skill_area.lower() == topic.lower()
+        ]
+        
+        if limit and len(topic_questions) > limit:
+            # Return a random sample if limit is specified and we have more questions
+            import random
+            return random.sample(topic_questions, limit)
+        
+        return topic_questions
+
+    async def get_available_topics(self) -> List[str]:
+        """
+        Returns a list of unique topics (skill_areas) available in the question pool.
+        """
+        await self._initialize_if_needed()
+        
+        topics = set()
+        for question in self._questions_cache.values():
+            topics.add(question.skill_area)
+        
+        return sorted(list(topics))
+
+    async def get_topic_question_count(self, topic: str) -> int:
+        """
+        Returns the number of questions available for a specific topic.
+        """
+        await self._initialize_if_needed()
+        
+        count = sum(
+            1 for question in self._questions_cache.values()
+            if question.skill_area.lower() == topic.lower()
+        )
+        
+        return count
+
     async def clear_all_questions_from_db(self):
         """A helper method for testing to clear the questions collection in the DB."""
         await self.collection.delete_many({})
