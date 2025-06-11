@@ -76,7 +76,6 @@ async def update_daily_mission_progress(
             user_id=user_id,
             current_question_index=payload.current_question_index,
             answers=payload.answers,
-            status=payload.status,
             mission_repo=mission_repo
         )
         

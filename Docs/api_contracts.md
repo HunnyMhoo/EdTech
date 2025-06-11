@@ -4,7 +4,7 @@ This document provides details on the public and internal APIs available in the 
 
 ## Conventions
 
--   **Base URL:** All API endpoints are prefixed with `/api` (e.g., `http://localhost:8000/api`).
+-   **Base URL:** All API endpoints are prefixed with `/api` (e.g., `http://127.0.0.1:8000/api`).
 -   **Authentication:** Currently simulated via a hardcoded user ID (`test_user_123`). Future implementation will use LINE Login (OAuth 2.0 bearer tokens).
 -   **Response Format:** Standardized JSON responses using the `MissionResponse` model where applicable (`status`, `data`, `message`).
 -   **Error Handling:** Uses standard HTTP status codes. Errors from FastAPI often return a JSON object with a `detail` field.

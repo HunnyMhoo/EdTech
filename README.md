@@ -101,9 +101,9 @@ EdTech/
     ```bash
     uvicorn main:app --reload --port 8000
     ```
-3.  The backend API should now be running at `http://localhost:8000`.
-4.  You can access the health check at `http://localhost:8000/health`.
-5.  API documentation (Swagger UI) should be available at `http://localhost:8000/docs`.
+3.  The backend API should now be running at `http://127.0.0.1:8000`.
+4.  You can access the health check at `http://127.0.0.1:8000/health`.
+5.  API documentation (Swagger UI) should be available at `http://127.0.0.1:8000/docs`.
 
 ### Frontend
 
@@ -134,7 +134,7 @@ EdTech/
 ## API Documentation
 
 *   The backend API is built with FastAPI, which provides automatic interactive documentation.
-*   Once the backend is running, access it at: `http://localhost:8000/docs`
+*   Once the backend is running, access it at: `http://127.0.0.1:8000/docs`
 *   Detailed API contracts are also available in [`Docs/api_contracts.md`](./Docs/api_contracts.md).
 
 ## Testing

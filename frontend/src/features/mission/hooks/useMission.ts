@@ -7,7 +7,7 @@ import {
   Question,
   MissionProgressUpdatePayload,
 } from '@/features/mission/api/missionApi';
-import { showAlert } from '@/services/notificationService';
+import { showAlert } from '@/shared/services/notificationService';
 
 export const useMission = (userId: string = 'test_user_123') => {
   const [mission, setMission] = useState<Mission | null>(null);
@@ -39,20 +39,13 @@ export const useMission = (userId: string = 'test_user_123') => {
 
   const saveProgress = useCallback(async (
     indexToSave: number,
-    answersToSave: Answer[],
-    status?: Mission['status']
+    answersToSave: Answer[]
   ) => {
     if (!mission) return;
-
-    let newStatus = status || mission.status;
-    if (answersToSave.length > 0 && newStatus === 'not_started') {
-        newStatus = 'in_progress';
-    }
     
     const payload: MissionProgressUpdatePayload = {
       current_question_index: indexToSave,
       answers: answersToSave,
-      status: newStatus,
     };
 
     try {
@@ -76,9 +69,9 @@ export const useMission = (userId: string = 'test_user_123') => {
     if (currentQuestionIndex < mission.questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
-      saveProgress(nextIndex, newAnswers, isMissionComplete ? 'complete' : 'in_progress');
+      saveProgress(nextIndex, newAnswers);
     } else {
-      saveProgress(currentQuestionIndex, newAnswers, 'complete');
+      saveProgress(currentQuestionIndex, newAnswers);
       showAlert('Mission Complete!', 'You have answered all questions.');
     }
   }, [mission, currentQuestionIndex, userAnswers, saveProgress]);

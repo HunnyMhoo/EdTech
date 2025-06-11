@@ -73,7 +73,7 @@ export async function fetchDailyMission(userId: string): Promise<Mission> {
 export interface MissionProgressUpdatePayload {
   current_question_index: number;
   answers: Answer[];
-  status?: 'not_started' | 'in_progress' | 'complete' | 'archived';
+  // Note: status is automatically determined by the backend based on progress
 }
 
 export const updateMissionProgressApi = async (
