@@ -38,7 +38,7 @@ describe('fetchDailyMission', () => {
 
     const mission = await fetchDailyMission('test_user_123');
     expect(mission).toEqual(mockMissionData);
-    expect(fetch).toHaveBeenCalledWith(`${API_BASE_URL}/api/missions/daily/test_user_123`, expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE_URL}/missions/daily/test_user_123`, expect.any(Object));
   });
 
   test('throws an error if the network response is not ok', async () => {
@@ -47,7 +47,7 @@ describe('fetchDailyMission', () => {
     await expect(fetchDailyMission('test_user_123')).rejects.toThrow(
       'Could not retrieve daily mission: Failed to fetch mission: 500 - {"status":"error","message":"Internal Server Error"}'
     );
-    expect(fetch).toHaveBeenCalledWith(`${API_BASE_URL}/api/missions/daily/test_user_123`, expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE_URL}/missions/daily/test_user_123`, expect.any(Object));
   });
 
   test('throws an error if there is a network failure', async () => {
@@ -56,6 +56,6 @@ describe('fetchDailyMission', () => {
     await expect(fetchDailyMission('test_user_123')).rejects.toThrow(
       'Could not retrieve daily mission: Network failed'
     );
-    expect(fetch).toHaveBeenCalledWith(`${API_BASE_URL}/api/missions/daily/test_user_123`, expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE_URL}/missions/daily/test_user_123`, expect.any(Object));
   });
 }); 

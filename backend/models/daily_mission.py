@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, date
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 class MissionStatus(str, Enum):
     NOT_STARTED = "not_started"
@@ -23,13 +23,30 @@ class Question(BaseModel):
     correct_answer_id: str
     feedback_th: str
 
+class AnswerAttempt(BaseModel):
+    """Individual attempt at answering a question"""
+    answer: Any
+    is_correct: bool
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class Answer(BaseModel):
+    """Enhanced answer model with retry tracking"""
+    question_id: str
+    current_answer: Any
+    is_correct: bool = False
+    attempt_count: int = 0
+    attempts_history: List[AnswerAttempt] = Field(default_factory=list)
+    feedback_shown: bool = False
+    is_complete: bool = False  # True when question is fully completed (correct or max retries reached)
+    max_retries: int = 3
+
 class DailyMissionDocument(BaseModel):
     user_id: str
     date: date
     questions: List[Question]
     status: MissionStatus = MissionStatus.NOT_STARTED
     current_question_index: int = 0
-    answers: list = Field(default_factory=list)
+    answers: List[Answer] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

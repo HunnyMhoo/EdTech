@@ -106,6 +106,99 @@ These APIs are intended to be consumed by the frontend client (React Native app)
             ```
 *   **Code Reference:** `update_today_mission_progress` function in [`backend/routes/missions.py`](../backend/routes/missions.py).
 
+#### 3. Submit Answer with Instant Feedback
+
+*   **Description:** Submits an answer for a specific question and returns immediate feedback including correctness, explanation, and retry information.
+*   **Method:** `POST`
+*   **Path:** `/missions/daily/{user_id}/submit-answer`
+*   **Purpose:** Enables instant feedback functionality with comprehensive answer validation and attempt tracking.
+*   **Parameters:**
+    *   `user_id (str)`: Path parameter - User ID for the mission
+    *   **Request Body:** `AnswerSubmissionPayload` model
+        ```json
+        {
+            "question_id": "string",
+            "answer": "any"
+        }
+        ```
+*   **Responses:**
+    *   **`200 OK` (Success):**
+        *   **Body:** `ApiResponse` with feedback data
+            ```json
+            {
+                "status": "success",
+                "message": "Answer submitted successfully.",
+                "feedback": {
+                    "already_complete": false,
+                    "is_correct": true,
+                    "correct_answer": "string",
+                    "explanation": "string",
+                    "attempt_count": 1,
+                    "max_retries": 3,
+                    "can_retry": false,
+                    "question_complete": true
+                }
+            }
+            ```
+    *   **`404 Not Found` (Error):** Mission not found
+    *   **`500 Internal Server Error` (Error):** Submission processing error
+*   **Code Reference:** `submit_answer_with_feedback` function in [`backend/routes/missions.py`](../backend/routes/missions.py).
+
+#### 4. Mark Feedback as Shown
+
+*   **Description:** Marks feedback as viewed for mission completion tracking.
+*   **Method:** `POST`
+*   **Path:** `/missions/daily/{user_id}/mark-feedback-shown`
+*   **Purpose:** Tracks when users view feedback to determine mission completion status.
+*   **Parameters:**
+    *   `user_id (str)`: Path parameter - User ID for the mission
+    *   **Request Body:**
+        ```json
+        {
+            "question_id": "string"
+        }
+        ```
+*   **Responses:**
+    *   **`200 OK` (Success):**
+        *   **Body:**
+            ```json
+            {
+                "status": "success",
+                "message": "Feedback marked as shown.",
+                "mission_status": "in_progress"
+            }
+            ```
+    *   **`404 Not Found` (Error):** Mission not found
+*   **Code Reference:** `mark_feedback_as_shown` function in [`backend/routes/missions.py`](../backend/routes/missions.py).
+
+#### 5. Retry Question
+
+*   **Description:** Resets a question for retry while preserving attempt history.
+*   **Method:** `POST`
+*   **Path:** `/missions/daily/{user_id}/retry-question`
+*   **Purpose:** Enables question retry functionality with attempt limit enforcement.
+*   **Parameters:**
+    *   `user_id (str)`: Path parameter - User ID for the mission
+    *   **Request Body:**
+        ```json
+        {
+            "question_id": "string"
+        }
+        ```
+*   **Responses:**
+    *   **`200 OK` (Success):**
+        *   **Body:**
+            ```json
+            {
+                "status": "success",
+                "message": "Question reset for retry.",
+                "remaining_attempts": 2
+            }
+            ```
+    *   **`400 Bad Request` (Error):** No more retries available
+    *   **`404 Not Found` (Error):** Mission not found
+*   **Code Reference:** `retry_question_endpoint` function in [`backend/routes/missions.py`](../backend/routes/missions.py).
+
 ---
 
 ### Health Check API
@@ -168,5 +261,33 @@ While not strictly HTTP APIs, the backend services expose functions that act as 
     *   `status (Optional[MissionStatus])`: The new mission status (e.g., `in_progress`, `complete`).
 *   **Returns:** The updated `DailyMissionDocument` instance if successful, otherwise `None` (e.g., if the mission doesn't exist).
 *   **Called by:** The `/missions/today/progress` API endpoint.
+
+#### 4. `submit_answer_with_feedback(user_id: str, question_id: str, answer: Any) -> Dict[str, Any]`
+
+*   **Description:** Processes answer submissions with immediate feedback, attempt tracking, and completion status updates.
+*   **Parameters:**
+    *   `user_id (str)`: The user's ID.
+    *   `question_id (str)`: The question being answered.
+    *   `answer (Any)`: The user's answer submission.
+*   **Returns:** Dictionary containing feedback information including correctness, explanation, attempt count, and retry availability.
+*   **Called by:** The `/missions/daily/{user_id}/submit-answer` API endpoint.
+
+#### 5. `mark_feedback_shown(user_id: str, question_id: str) -> Dict[str, str]`
+
+*   **Description:** Marks feedback as viewed for mission completion tracking and updates mission status if all conditions are met.
+*   **Parameters:**
+    *   `user_id (str)`: The user's ID.
+    *   `question_id (str)`: The question whose feedback was viewed.
+*   **Returns:** Dictionary containing updated mission status.
+*   **Called by:** The `/missions/daily/{user_id}/mark-feedback-shown` API endpoint.
+
+#### 6. `reset_question_for_retry(user_id: str, question_id: str) -> Dict[str, int]`
+
+*   **Description:** Resets a question for retry while preserving attempt history and enforcing retry limits.
+*   **Parameters:**
+    *   `user_id (str)`: The user's ID.
+    *   `question_id (str)`: The question to reset for retry.
+*   **Returns:** Dictionary containing remaining attempts count.
+*   **Called by:** The `/missions/daily/{user_id}/retry-question` API endpoint.
 
 For a list of components, see the [Component Reference](component_reference.md). 

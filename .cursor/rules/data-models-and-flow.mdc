@@ -1,82 +1,62 @@
 ---
-description: Specification for data models, API structures, and data flow between frontend/backend with timezone handling
-globs: backend/services/*,backend/repositories/*,frontend/src/features/*/api/*,frontend/src/state/*,backend/models/*
+description: Describes data models, API structures, and data flow for daily mission management and question interactions
+globs: backend/models/**,backend/services/**,frontend/src/features/mission/**
 alwaysApply: false
 ---
 
 
 # data-models-and-flow
 
-## Core Data Models
+## Core Data Models (Importance: 95)
 
-### Mission Model (Importance: 95)
+### Daily Mission Model
 - Located in `backend/models/daily_mission.py`
-- Represents daily user missions with:
-  - 5 unique questions per mission
-  - Status tracking (NOT_STARTED, IN_PROGRESS, COMPLETE, ARCHIVED)
-  - User answers and progress tracking
-  - Timezone-aware date handling (UTC+7)
-  - Question feedback viewing status
-
-### Question Model (Importance: 90)
-- Located in `backend/repositories/question_repository.py`
-- Maintains question pool with:
-  - Question text and choices
-  - Correct answer identification
-  - Feedback content
-  - In-memory caching for performance
-
-## Data Flow
-
-### Mission Generation Flow (Importance: 85)
-- Service: `backend/services/mission_generation_service.py`
-- Flow:
-  1. Validates no existing mission for user/day
-  2. Selects 5 random unique questions
-  3. Creates mission with NOT_STARTED status
-  4. Associates questions with mission
-
-### Mission Progress Flow (Importance: 80)
-- Service: `backend/services/mission_progress_service.py`
-- Flow:
-  1. Updates user answer submissions
-  2. Tracks feedback viewing status
-  3. Automatically transitions states based on completion criteria
-  4. Syncs progress between frontend/backend
-
-### Timezone Management (Importance: 75)
-- Service: `backend/services/utils.py`
-- Handles:
-  - Mission date calculations in UTC+7
-  - Mission archiving timing
-  - Daily reset scheduling
-  - Date-based mission availability
+- Represents a user's daily set of 5 questions
+- Tracks completion status and attempt history
+- Manages question pool rotation to prevent repeats
 
 ### API Response Structures
+- Located in `backend/models/api_responses.py`
+- Question submission response includes:
+  - Correctness status
+  - Attempt count
+  - Detailed feedback
+  - Explanation content
 
-#### Mission API (Importance: 85)
-```typescript
-interface Mission {
-  id: string;
-  userId: string;
-  date: string; // UTC+7 format
-  questions: Question[];
-  status: MissionStatus;
-  currentQuestionIndex: number;
-  answers: Answer[];
-}
-```
+## Data Flow Architecture (Importance: 85)
 
-#### Question API (Importance: 80)
-```typescript
-interface Question {
-  id: string;
-  text: string;
-  choices: Choice[];
-  correctAnswerId: string;
-  feedback: string;
-}
-```
+### Mission Generation Flow
+- `mission_generation_service.py` handles daily question set creation
+- Ensures unique questions per user until pool exhaustion
+- Tracks viewed feedback and completion status
+
+### Answer Processing Flow
+- Answer submission → Feedback generation → Attempt tracking
+- Maximum 3 attempts per question enforced
+- Historical attempt data preserved for analytics
+- Question state reset capability for retries
+
+### Frontend State Management
+- `useMission.ts` manages question/answer state:
+  - Current answer status
+  - Completion tracking
+  - Attempt counting
+  - Feedback visibility
+
+## Integration Points (Importance: 80)
+
+### Mission Progress Tracking
+- `mission_progress_service.py` coordinates:
+  - Question completion status
+  - Feedback acknowledgment
+  - Overall mission progress
+
+### Frontend-Backend Synchronization
+- `missionApi.ts` handles:
+  - Answer submission
+  - Progress updates
+  - Feedback retrieval
+  - Attempt synchronization
 
 $END$
 

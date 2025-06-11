@@ -1,87 +1,66 @@
 ---
-description: Defines API contract and interaction patterns between frontend and backend services for mission-based learning system
-globs: backend/routes/*,frontend/src/features/*/api/*,frontend/src/services/*
+description: Defines the API contract between frontend and backend for mission/question management and authentication flows
+globs: backend/routes/*,backend/models/api_responses.py,frontend/src/features/*/api/*
 alwaysApply: false
 ---
 
 
 # api-integration
 
-### Core API Endpoints
+## API Endpoints
 
-#### Mission Management Endpoints
-- `GET /missions/daily/{user_id}`
-  - Retrieves or generates daily mission for user
-  - Returns 5 unique questions and current mission status
-  - Handles timezone-specific (UTC+7) date logic
-  - Importance: 95
+### Mission Management
+- GET `/missions/daily`: Retrieves user's daily set of 5 questions
+- POST `/missions/submit`: Processes question answers and returns feedback
+- GET `/missions/progress`: Returns mission completion status and attempt history
 
-- `PUT /missions/{mission_id}/progress` 
-  - Updates mission progress including:
-    - Current question index
-    - User answers
-    - Mission completion status
-  - Automatically transitions states (not_started -> in_progress -> complete)
-  - Importance: 90
+### Question Interaction
+- POST `/questions/retry`: Resets question state for new attempt while preserving history
+- GET `/questions/feedback`: Retrieves detailed feedback including explanation and correct answer
 
-#### Question Management Endpoints
-- `GET /questions/{question_id}`
-  - Retrieves question details including choices and feedback
-  - Used for progressive question loading during mission
-  - Importance: 85
+## Response Formats
 
-### API Response Models
-
-#### Mission Response Model
+### Mission Response Structure
 ```typescript
-interface Mission {
-  id: string;
-  userId: string;
-  status: 'not_started' | 'in_progress' | 'complete' | 'archived';
-  questions: Question[];
-  currentQuestionIndex: number;
-  answers: Answer[];
-  date: string; // UTC+7 midnight timestamp
+{
+  missionId: string
+  questions: Question[]
+  progress: {
+    completedCount: number
+    totalQuestions: number
+    attemptsRemaining: number
+  }
 }
 ```
-Importance: 90
 
-#### Progress Update Model
+### Question Feedback Structure
 ```typescript
-interface MissionProgress {
-  currentQuestionIndex: number;
-  answer: {
-    questionId: string;
-    selectedChoiceId: string;
-  };
+{
+  correct: boolean
+  explanation: string
+  correctAnswer: string
+  attemptCount: number
+  maxAttempts: number
+  canRetry: boolean
 }
 ```
-Importance: 85
 
-### Integration Patterns
+## Error Handling
 
-#### Mission State Management
-- Frontend maintains mission state using `useMission` hook
-- Syncs with backend on:
-  - Initial load
-  - Answer submission
-  - Question navigation
-  - Mission completion
-- Importance: 85
+### Mission-Specific Errors
+- `MISSION_NOT_FOUND`: Daily mission not yet generated
+- `MAX_ATTEMPTS_REACHED`: No more retries available for question
+- `INVALID_QUESTION_STATE`: Attempting to submit answer for completed question
 
-#### Error Handling
-- Standard error responses include:
-  - 404: Mission/Question not found
-  - 409: Duplicate mission creation
-  - 422: Invalid mission progress update
-- Frontend displays user-friendly error messages via notification service
-- Importance: 75
+### Progress Tracking
+- Maintains attempt history across retries
+- Tracks feedback viewing status per question
+- Records completion status based on correct answers or max attempts reached
 
-#### Timezone Handling
-- All API requests/responses use UTC+7 timezone
-- Date synchronization ensures consistent mission generation
-- Mission archival based on local timezone
-- Importance: 80
+Importance Scores:
+- Mission Response Format: 85 (Critical integration point for core functionality)
+- Question Feedback Structure: 80 (Essential for user progression)
+- Error Handling Patterns: 75 (Important for maintaining data integrity)
 
 $END$
 

@@ -1,9 +1,27 @@
 import { API_BASE_URL } from '@/config';
 
-// Interface for individual answers as stored in the backend
+// Enhanced answer interface with attempt tracking
+export interface AnswerAttempt {
+  answer: any;
+  is_correct: boolean;
+  timestamp: string;
+}
+
 export interface Answer {
   question_id: string;
-  answer: any; // Can be string, number, object, depending on question type
+  current_answer: any;
+  is_correct: boolean;
+  attempt_count: number;
+  attempts_history: AnswerAttempt[];
+  feedback_shown: boolean;
+  is_complete: boolean;
+  max_retries: number;
+}
+
+// Legacy answer interface for backward compatibility
+export interface LegacyAnswer {
+  question_id: string;
+  answer: any;
   feedback_shown?: boolean;
 }
 
@@ -13,108 +31,161 @@ export interface Question {
   question_text: string;
   skill_area: string;
   difficulty_level: number;
-  choices?: Array<{ id: string; text: string }>; // Add choices for multiple-choice questions
+  choices?: Array<{ id: string; text: string }>;
   feedback_th: string;
   correct_answer_id: string;
-  // Add any other fields that your backend's Question model might have
 }
 
 // Updated Mission interface to match DailyMissionDocument from backend
 export interface Mission {
   user_id: string;
-  date: string; // ISO date string (e.g., "2023-10-27")
-  questions: Question[]; // Changed from question_ids: string[]
+  date: string;
+  questions: Question[];
   status: 'not_started' | 'in_progress' | 'complete' | 'archived';
   current_question_index: number;
-  answers: Array<{ question_id: string; answer: any }>; // Consider defining a more specific answer type
-  created_at: string; // ISO datetime string
-  updated_at: string; // ISO datetime string
-  // Questions might be fetched separately or embedded. For now, assuming question_ids are primary.
-  // If questions are embedded, the type would be Question[] instead of string[] for question_ids
-  // and the backend would need to populate them.
-  // For this iteration, let's assume we get question_ids and might need a separate fetch for details, or they are simple enough.
+  answers: Answer[];
+  created_at: string;
+  updated_at: string;
 }
 
-// Generic API response wrapper to match backend's MissionResponse
-interface ApiResponse<T> {
+// Feedback response interface
+export interface FeedbackResponse {
+  already_complete: boolean;
+  is_correct: boolean;
+  correct_answer: string;
+  explanation: string;
+  attempt_count: number;
+  max_retries?: number;
+  can_retry?: boolean;
+  question_complete?: boolean;
+}
+
+// API response wrapper
+export interface ApiResponse<T = any> {
   status: string;
+  message: string;
   data?: T;
-  message?: string;
-}
-
-export async function fetchDailyMission(userId: string): Promise<Mission> {
-  const url = `${API_BASE_URL}/api/missions/daily/${userId}`;
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        // Include Authorization header if/when auth is implemented
-        // 'Authorization': `Bearer ${your_auth_token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Failed to fetch mission: ${response.status} - ${errorBody}`);
-    }
-
-    const json = await response.json();
-    return json.data;
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Could not retrieve daily mission: ${error.message}`);
-    }
-    throw new Error('An unknown error occurred while fetching the daily mission.');
-  }
+  feedback?: FeedbackResponse;
 }
 
 // Payload for updating mission progress
 export interface MissionProgressUpdatePayload {
   current_question_index: number;
-  answers: Answer[];
-  // Note: status is automatically determined by the backend based on progress
+  answers: LegacyAnswer[]; // Keep legacy format for backward compatibility
+  status?: 'not_started' | 'in_progress' | 'complete' | 'archived';
 }
 
+// Payload for submitting answers
+export interface AnswerSubmissionPayload {
+  question_id: string;
+  answer: any;
+}
+
+export const fetchDailyMission = async (userId: string): Promise<Mission> => {
+  const response = await fetch(`${API_BASE_URL}/missions/daily/${userId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+
+  const responseData: ApiResponse<Mission> = await response.json();
+  return responseData.data!;
+};
+
 export const updateMissionProgressApi = async (
-  userId: string = 'test_user_123',
+  userId: string,
   payload: MissionProgressUpdatePayload
 ): Promise<Mission> => {
-  const endpoint = `${API_BASE_URL}/api/missions/daily/${userId}/progress`;
+  const response = await fetch(`${API_BASE_URL}/missions/daily/${userId}/progress`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 
-  try {
-    console.log(`Updating mission progress to: ${endpoint}`, payload);
-    const response = await fetch(endpoint, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        // 'Authorization': `Bearer ${your_auth_token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error('API error while updating progress:', response.status, errorBody);
-      throw new Error(`Failed to update mission progress: ${response.status} - ${errorBody}`);
-    }
-
-    const result: ApiResponse<Mission> = await response.json();
-
-    if (result.status === 'success' && result.data) {
-      console.log('Successfully updated mission progress:', result.data);
-      return result.data;
-    } else {
-      console.error('API returned non-success status or no data on progress update:', result);
-      throw new Error(result.message || 'Failed to update mission progress.');
-    }
-  } catch (error) {
-    console.error('Error in updateMissionProgressApi:', error);
-    if (error instanceof Error) {
-      throw new Error(`Could not update mission progress: ${error.message}`);
-    }
-    throw new Error('An unknown error occurred while updating mission progress.');
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
   }
+
+  const responseData: ApiResponse<Mission> = await response.json();
+  return responseData.data!;
+};
+
+export const submitAnswerWithFeedback = async (
+  userId: string,
+  questionId: string,
+  answer: any
+): Promise<FeedbackResponse> => {
+  const payload: AnswerSubmissionPayload = {
+    question_id: questionId,
+    answer: answer,
+  };
+
+  const response = await fetch(`${API_BASE_URL}/missions/daily/${userId}/submit-answer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+
+  const responseData: ApiResponse = await response.json();
+  return responseData.feedback!;
+};
+
+export const markFeedbackShown = async (
+  userId: string,
+  questionId: string
+): Promise<{ mission_status: string }> => {
+  const response = await fetch(`${API_BASE_URL}/missions/daily/${userId}/mark-feedback-shown`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ question_id: questionId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+
+  const responseData: any = await response.json();
+  return { mission_status: responseData.mission_status || 'in_progress' };
+};
+
+export const retryQuestion = async (
+  userId: string,
+  questionId: string
+): Promise<{ remaining_attempts: number }> => {
+  const response = await fetch(`${API_BASE_URL}/missions/daily/${userId}/retry-question`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ question_id: questionId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+
+  const responseData: any = await response.json();
+  return { remaining_attempts: responseData.remaining_attempts || 0 };
 };
 
 // --- Mocked Data (can be removed or kept for testing if backend is down) ---

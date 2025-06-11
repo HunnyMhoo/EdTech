@@ -1,62 +1,69 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ActivityIndicator, Button, StyleSheet, TextInput } from 'react-native';
-import { fetchDailyMission, Mission } from '../api/missionApi';
+import React from 'react';
+import { View, Text, ActivityIndicator, Button, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useAuth } from '../../auth/state/AuthContext';
+import { useMission } from '../hooks/useMission';
+import MultipleChoiceQuestion from '../components/MultipleChoiceQuestion';
+import FeedbackModal from '../components/FeedbackModal';
 
 const MissionScreen: React.FC = () => {
   const { userId, signOut } = useAuth();
-  const [mission, setMission] = useState<Mission | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentQuestionDisplayIndex, setCurrentQuestionDisplayIndex] = useState<number>(0);
-  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({}); // { question_id: answer_text }
+  const {
+    mission,
+    currentQuestion,
+    currentQuestionIndex,
+    isLoading,
+    error,
+    isSubmitting,
+    currentQuestionState,
+    getCurrentAnswer,
+    setCurrentAnswer,
+    feedbackState,
+    loadMission,
+    submitAnswer,
+    closeFeedback,
+    retryCurrentQuestion,
+    goToQuestion,
+  } = useMission(userId || '');
 
-  const loadMission = async () => {
-    if (!userId) return;
-
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchDailyMission(userId);
-      setMission(data);
-      if (data.current_question_index > 0) {
-        setCurrentQuestionDisplayIndex(data.current_question_index);
-      }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-      console.error('Failed to load mission:', err);
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    loadMission();
-  }, [userId]);
-
-  const handleNextQuestion = () => {
-    if (mission && currentQuestionDisplayIndex < mission.questions.length - 1) {
-      setCurrentQuestionDisplayIndex(currentQuestionDisplayIndex + 1);
+  const handleAnswerChange = (answer: string) => {
+    if (currentQuestion) {
+      setCurrentAnswer(currentQuestion.question_id, answer);
     }
   };
 
-  const handlePreviousQuestion = () => {
-    if (currentQuestionDisplayIndex > 0) {
-      setCurrentQuestionDisplayIndex(currentQuestionDisplayIndex - 1);
+  const handleSubmitAnswer = () => {
+    if (!currentQuestion || !currentQuestionState) return;
+    
+    const answer = getCurrentAnswer(currentQuestion.question_id);
+    if (!answer.trim()) {
+      Alert.alert('Missing Answer', 'Please provide an answer before submitting.');
+      return;
     }
+
+    submitAnswer(currentQuestion.question_id, answer);
   };
 
-  const handleAnswerChange = (questionId: string, text: string) => {
-    setUserAnswers(prevAnswers => ({
-      ...prevAnswers,
-      [questionId]: text,
-    }));
+  const canSubmit = () => {
+    if (!currentQuestion || !currentQuestionState) return false;
+    const answer = getCurrentAnswer(currentQuestion.question_id);
+    return answer.trim().length > 0 && !isSubmitting && !currentQuestionState.isComplete;
+  };
+
+  const canNavigate = (direction: 'prev' | 'next') => {
+    if (!mission) return false;
+    
+    if (direction === 'prev') {
+      return currentQuestionIndex > 0;
+    } else {
+      return currentQuestionIndex < mission.questions.length - 1;
+    }
   };
 
   if (isLoading) {
     return (
       <View style={styles.containerCentered}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.text}>Loading daily mission...</Text>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading daily mission...</Text>
       </View>
     );
   }
@@ -74,42 +81,125 @@ const MissionScreen: React.FC = () => {
     return (
       <View style={styles.containerCentered}>
         <Text style={styles.text}>No mission available for today. Check back later!</Text>
+        <Button title="Refresh" onPress={loadMission} />
       </View>
     );
   }
 
-  const currentQuestion = mission?.questions[currentQuestionDisplayIndex];
+  if (!currentQuestion) {
+    return (
+      <View style={styles.containerCentered}>
+        <Text style={styles.text}>Question not found</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Your Daily Mission</Text>
-      <Text style={styles.userIdText}>User ID: {userId}</Text>
-      {currentQuestion && (
-        <View key={currentQuestion.question_id} style={styles.questionContainer}>
-          <Text style={styles.questionText}>{currentQuestionDisplayIndex + 1}. {currentQuestion.question_text}</Text>
-          <TextInput
-            style={styles.input}
-            onChangeText={(text) => handleAnswerChange(currentQuestion.question_id, text)}
-            value={userAnswers[currentQuestion.question_id] || ''}
-            placeholder="Type your answer here"
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Daily Mission</Text>
+          <Text style={styles.userIdText}>User: {userId}</Text>
+          <Text style={styles.statusText}>Status: {mission.status}</Text>
+        </View>
+
+        {/* Progress Indicator */}
+        <View style={styles.progressContainer}>
+          <Text style={styles.progressText}>
+            Question {currentQuestionIndex + 1} of {mission.questions.length}
+          </Text>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill,
+                { width: `${((currentQuestionIndex + 1) / mission.questions.length) * 100}%` }
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Question */}
+        <MultipleChoiceQuestion
+          question={currentQuestion}
+          questionIndex={currentQuestionIndex}
+          onAnswerChange={handleAnswerChange}
+          currentAnswer={getCurrentAnswer(currentQuestion.question_id)}
+          disabled={isSubmitting || currentQuestionState?.isComplete}
+          showFeedback={false}
+        />
+
+        {/* Question Status */}
+        {currentQuestionState && (
+          <View style={styles.questionStatus}>
+            {currentQuestionState.isComplete && (
+              <Text style={styles.completedText}>
+                ✓ Question completed ({currentQuestionState.attemptCount} attempts)
+              </Text>
+            )}
+            {currentQuestionState.isAnswered && !currentQuestionState.isComplete && (
+              <Text style={styles.attemptText}>
+                Attempts: {currentQuestionState.attemptCount} / 3
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* Submit Button */}
+        <View style={styles.submitContainer}>
+          <Button
+            title={isSubmitting ? 'Submitting...' : 'Submit Answer'}
+            onPress={handleSubmitAnswer}
+            disabled={!canSubmit()}
+            color="#007AFF"
           />
         </View>
-      )}
 
-      <View style={styles.navigationContainer}>
-        <Button title="Previous" onPress={handlePreviousQuestion} disabled={currentQuestionDisplayIndex === 0} />
-        <Text style={styles.progressText}>
-          Question {currentQuestionDisplayIndex + 1} of {mission?.questions.length || 0}
-        </Text>
-        <Button
-          title="Next"
-          onPress={handleNextQuestion}
-          disabled={!mission || currentQuestionDisplayIndex === mission.questions.length - 1}
-        />
+        {/* Navigation */}
+        <View style={styles.navigationContainer}>
+          <Button
+            title="Previous"
+            onPress={() => goToQuestion(currentQuestionIndex - 1)}
+            disabled={!canNavigate('prev')}
+            color="#666"
+          />
+          <Button
+            title="Next"
+            onPress={() => goToQuestion(currentQuestionIndex + 1)}
+            disabled={!canNavigate('next')}
+            color="#666"
+          />
+        </View>
+
+        {/* Mission Progress Summary */}
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryTitle}>Progress Summary</Text>
+          <View style={styles.summaryStats}>
+            <Text style={styles.summaryText}>
+              Answered: {mission.answers.filter(a => a.is_complete).length} / {mission.questions.length}
+            </Text>
+            <Text style={styles.summaryText}>
+              Correct: {mission.answers.filter(a => a.is_correct).length}
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Sign Out Button */}
+      <View style={styles.signOutContainer}>
+        <Button title="Sign Out" onPress={signOut} color="#FF3B30" />
       </View>
-      <View style={styles.signOutButton}>
-        <Button title="Sign Out" onPress={signOut} color="#ff3b30" />
-      </View>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        visible={feedbackState.visible}
+        feedback={feedbackState.feedback}
+        onClose={closeFeedback}
+        onRetry={retryCurrentQuestion}
+      />
     </View>
   );
 };
@@ -117,67 +207,134 @@ const MissionScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#F5F5F5',
+  },
+  scrollContainer: {
+    padding: 16,
+    paddingBottom: 100,
   },
   containerCentered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#F5F5F5',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#333',
+    marginBottom: 8,
   },
   userIdText: {
-    textAlign: 'center',
-    marginBottom: 10,
-    color: 'grey',
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
   },
-  text: {
+  statusText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  progressContainer: {
+    marginBottom: 24,
+  },
+  progressText: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
     textAlign: 'center',
+    marginBottom: 8,
   },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 10,
+  progressBar: {
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    overflow: 'hidden',
   },
-  questionContainer: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#007AFF',
+    borderRadius: 4,
   },
-  questionText: {
-    fontSize: 18,
-    marginBottom: 10,
+  questionStatus: {
+    alignItems: 'center',
+    marginTop: 16,
   },
-  input: {
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    backgroundColor: 'white',
+  completedText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
+  attemptText: {
+    fontSize: 14,
+    color: '#FF9800',
+    fontWeight: '500',
+  },
+  submitContainer: {
+    marginTop: 24,
+    marginBottom: 16,
   },
   navigationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
+    marginTop: 16,
+    paddingHorizontal: 20,
   },
-  progressText: {
+  summaryContainer: {
+    marginTop: 32,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  summaryStats: {
+    gap: 8,
+  },
+  summaryText: {
     fontSize: 14,
+    color: '#666',
   },
-  signOutButton: {
-    marginTop: 20,
-  }
+  signOutContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  text: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#333',
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
 });
 
 export default MissionScreen; 

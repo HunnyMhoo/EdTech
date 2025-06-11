@@ -1,69 +1,44 @@
 ---
-description: Manages unique mission generation, selection, and lifecycle logic for daily educational challenges
-globs: **/mission_*.py,**/mission_*.ts,**/repositories/*_repository.py
+description: Specification for mission generation logic, question selection, and uniqueness guarantees in daily missions
+globs: backend/services/mission_generation_service.py,backend/services/mission_progress_service.py,backend/models/daily_mission.py
 alwaysApply: false
 ---
 
 
 # mission-generation-algorithm
 
-### Core Mission Generation Logic
-- Enforces daily mission generation with exactly 5 unique questions per user
-- Validates question pool availability before generation
-- Prevents duplicate missions for same user/date
-- Maintains mission state transitions: NOT_STARTED -> IN_PROGRESS -> COMPLETE/ARCHIVED
+The mission generation algorithm implements core business logic for creating and managing daily missions:
 
-### Mission Lifecycle Management
-- Archives incomplete missions at UTC+7 timezone boundary
-- Auto-transitions mission states based on user progress and feedback views
-- Handles mission regeneration when prior missions expire
+## Question Selection Logic [Importance: 95]
+- Generates unique sets of 5 daily questions per user
+- Maintains question pool exhaustion tracking
+- Ensures no question repetition until user completes and views feedback for all questions
+- File: `backend/services/mission_generation_service.py`
 
-### Question Selection Algorithm
-**File:** `backend/services/mission_generation_service.py`
-```
-Importance Score: 95
-- Random selection from qualified question pool
-- Enforces uniqueness within each mission
-- Validates minimum question availability (5)
-- Persists mission with NOT_STARTED status
-```
+## Progress Tracking [Importance: 85]
+- Tracks completion status per question
+- Implements 3-attempt limit per question
+- Records attempt history while allowing question state resets for retries
+- File: `backend/services/mission_progress_service.py`
 
-### Mission Progress Tracking
-**File:** `backend/services/mission_progress_service.py`
-```
-Importance Score: 85
-- Tracks completion state per question
-- Requires feedback view for completion
-- Auto-updates mission status based on progress
-- Manages state transitions for partial completion
-```
+## Mission Completion Rules [Importance: 90]
+- Mission marked complete when:
+  - All questions answered correctly OR
+  - Maximum attempts reached for all questions AND
+  - All feedback viewed by user
+- Maintains mission state in `daily_mission.py`
 
-### Timezone-Specific Operations
-**File:** `backend/services/utils.py`
-```
-Importance Score: 75
-- Synchronizes mission generation with UTC+7
-- Handles date boundaries for Thai student audience
-- Coordinates mission archival timing
-```
+## Feedback Processing [Importance: 80]
+- Immediate feedback generation after answer submission
+- Includes correctness status, correct answer, explanation
+- Tracks and manages feedback view status
+- Essential for question pool progression
 
-### Question Repository Management
-**File:** `backend/repositories/question_repository.py`
-```
-Importance Score: 70
-- Initializes question pool from CSV source
-- Maintains in-memory question cache
-- Provides atomic question retrieval operations
-```
-
-Key Features:
-- Single mission per user per day enforcement
-- Strict 5-question requirement
-- Timezone-aligned operations (UTC+7)
-- Question uniqueness guarantees
-- Automated mission lifecycle management
-- Progress-based state transitions
-- Feedback view requirement for completion
+## Question Pool Management [Importance: 85]
+- Tracks exhausted questions per user
+- Resets question availability after feedback viewing
+- Maintains user-specific question history
+- Ensures complete question pool coverage before repeats
 
 $END$
 

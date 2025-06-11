@@ -10,48 +10,46 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The project implements an educational mission system with three core business domains:
+The system implements a daily educational mission platform with these core components:
 
-### Mission Generation & Management (Importance: 95)
-- Daily mission generation creates 5 unique questions per user
-- Mission lifecycle transitions through states: NOT_STARTED → IN_PROGRESS → COMPLETE/ARCHIVED
-- Timezone-specific (UTC+7) mission generation and archiving for Thai students
-- Questions are randomly selected from a pre-loaded question pool
+## Daily Mission Management
+- Generates personalized sets of 5 daily questions per user
+- Prevents question repetition until user completes full question pool
+- Tracks mission completion status based on correct answers and feedback views
+- Location: `backend/services/mission_generation_service.py`
+Importance Score: 95
 
-### Mission Progress Tracking (Importance: 90)
-- Tracks user progress through questions and answers
-- Mission completion requires both answering questions and viewing feedback
-- Automatic status transitions based on user interactions
-- Previous day's incomplete missions are archived during daily reset
+## Question Progress Tracking
+- Implements 3-attempt limit per question
+- Maintains historical attempt data
+- Processes answer submissions with immediate feedback
+- Manages question state resets for retry attempts
+- Location: `backend/services/mission_progress_service.py`
+Importance Score: 90
 
-### User Session Management (Importance: 85) 
-- Supports both authenticated and guest user experiences
-- Guest sessions use predefined userIDs while maintaining progress tracking
-- Mission access and progress updates are tied to user sessions
+## User Interface Workflow
+- Displays immediate feedback modals after answer submission
+- Shows attempt counts and remaining retries
+- Manages question/answer state transitions
+- Presents progress indicators and completion summaries
+- Location: `frontend/src/features/mission/screens/MissionScreen.tsx`
+Importance Score: 85
 
-Key Integration Points:
+## Mission Completion Logic
+- Validates all questions answered correctly or maximum attempts reached
+- Confirms all feedback has been viewed
+- Updates mission status to complete
+- Location: `backend/services/mission_lifecycle_service.py`
+Importance Score: 80
 
-1. Mission Data Flow
-```
-Question Repository → Mission Generation → Mission Progress → User Interface
-```
-
-2. Status Management Chain
-```
-User Action → Progress Update → Status Check → Automatic Transition
-```
-
-3. Daily Reset Process
-```
-Timezone Check → Incomplete Mission Detection → Archive Operation
-```
-
-Core Business Files:
-- `backend/services/mission_generation_service.py`: Mission creation logic
-- `backend/services/mission_progress_service.py`: Progress tracking and status updates
-- `backend/services/mission_lifecycle_service.py`: Mission state management
-- `frontend/src/features/mission/hooks/useMission.ts`: Mission interaction handling
-- `backend/jobs/daily_reset.py`: Automated mission archiving
+## Answer Processing
+- Provides instant feedback with:
+  - Answer correctness
+  - Correct answer display
+  - Detailed explanations
+  - Attempt tracking
+- Location: `frontend/src/features/mission/components/FeedbackModal.tsx`
+Importance Score: 75
 
 $END$
 
