@@ -69,6 +69,28 @@ class MissionRepository:
             
         return missions_to_update
 
+    async def find_missions_by_status(self, user_id: str, status: MissionStatus) -> List[DailyMissionDocument]:
+        """
+        Finds all missions for a user with a specific status.
+        
+        Args:
+            user_id: The user ID
+            status: The mission status to filter by
+            
+        Returns:
+            List of missions with the specified status
+        """
+        cursor = self.collection.find({
+            "user_id": user_id,
+            "status": status.value
+        }).sort("date", -1)  # Sort by date descending
+        
+        missions: List[DailyMissionDocument] = []
+        async for mission_doc in cursor:
+            missions.append(DailyMissionDocument(**mission_doc))
+            
+        return missions
+
     async def clear_all_missions(self):
         """A helper method for testing to clear the in-memory store."""
         await self.collection.delete_many({}) 

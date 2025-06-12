@@ -4,6 +4,7 @@ import { View, Text } from 'react-native';
 import MissionScreen from '../../features/mission/screens/MissionScreen';
 import PracticeHomeScreen from '../../features/practice/screens/PracticeHomeScreen';
 import PracticeSessionScreen from '../../features/practice/screens/PracticeSessionScreen';
+import { ReviewMistakesScreen } from '../../features/review';
 
 const Tab = createBottomTabNavigator();
 
@@ -87,6 +88,18 @@ const TabNavigator: React.FC = () => {
           tabBarIcon: ({ focused, color }) => (
             <View style={{ alignItems: 'center' }}>
               <Text style={{ fontSize: 20, color }}>🎯</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ReviewMistakes"
+        component={ReviewMistakesScreen}
+        options={{
+          tabBarLabel: 'Review Mistakes',
+          tabBarIcon: ({ focused, color }) => (
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 20, color }}>🔍</Text>
             </View>
           ),
         }}

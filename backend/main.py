@@ -64,6 +64,9 @@ app.include_router(questions.router, prefix="/api", tags=["Questions"])
 # Include practice router for free practice mode
 from backend.routes import practice
 app.include_router(practice.router, prefix="/api", tags=["Practice"])
+# Include review mistakes router
+from backend.routes import review_mistakes
+app.include_router(review_mistakes.router, tags=["Review Mistakes"])
 # Include other routers here if you have them
 # app.include_router(another_router.router, prefix="/api/v1/another", tags=["Another Feature"])
 
